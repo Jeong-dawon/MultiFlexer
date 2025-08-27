@@ -1,4 +1,5 @@
-const socket = io('http://localhost:3001');
+// receiver
+const socket = io('http://localhost:3001'); // 172.20.10.6
 
 let senders = {}; // 현재 방에 있는 송신자 정보
 let peerConnections = {}; // 각 송신자에 대한 RTCPeerConnection 객체
@@ -11,8 +12,24 @@ const servers = { //추가됨 stun서버 명시
 // '방 참가' 버튼 클릭 이벤트 핸들러
 document.getElementById('join').onclick = () => {
     const password = document.getElementById('password').value.trim();
+    const room = document.getElementById('roomNum');
+    const createBtn = document.getElementById('join');
+
     if (!password) return alert("비밀번호 입력!");
     socket.emit('join-room', { role: 'receiver', password });
+
+    room.innerText = `방 : ${password}`;
+    passwordInput.value = '';
+    createBtn.style.display = 'none';
+};
+
+// '방 삭제' 버튼 클릭 이벤트 핸들러
+document.getElementById('del').onclick = () => {
+    socket.emit('del-room', { role: 'receiver' });
+    alert('방이 삭제되었습니다.');
+
+    // UI를 다시 초기화하거나, 페이지 리로드
+    location.reload(); // 💡 간단하고 효과적
 };
 
 // sender 리스트 받아오기
@@ -33,7 +50,9 @@ socket.on('new-sender', (sender) => {
 socket.on('remove-sender', (senderId) => {
     delete senders[senderId];
     closeConnection(senderId);
-    renderSenderList(Object.values(senders));
+
+    const resenderName = document.getElementById('sender-item-' + senderId);
+    if (resenderName) resenderName.remove();
 });
 
 // 송신자 리스트 UI를 새로 그려주는 함수
@@ -42,8 +61,13 @@ function renderSenderList(senderArr) {
     listDiv.innerHTML = '';
     senderArr.forEach(sender => {
         const item = document.createElement('div');
-        item.style.marginBottom = '10px';
-        item.innerText = `${sender.name} `;
+        item.id = 'sender-item-' + sender.id;
+        item.className = 'sender-container';
+
+        const resenderName = document.createElement('div');
+        resenderName.innerText = sender.name;
+        resenderName.className = 'sender-name';
+        item.appendChild(resenderName);
 
         // 화면 공유 요청 버튼
         const reqBtn = document.createElement('button');
@@ -74,6 +98,20 @@ async function toggleStream(senderId) {
         // 켜기 (WebRTC 연결)
         const pc = new RTCPeerConnection(servers);
         peerConnections[senderId] = pc;
+        // Mbps 측정 코드
+        startBitrateMonitoring(senderId, pc); // 🔁 비트레이트 측정 시작
+
+        // 🚨🚨--- H.264 디코딩 강제 ---
+        if (RTCRtpReceiver.getCapabilities) {
+            const { codecs } = RTCRtpReceiver.getCapabilities('video');
+            const h264Codec = codecs.find(c => c.mimeType.toLowerCase() === 'video/h264');
+            if (h264Codec) {
+                const transceiver = pc.addTransceiver('video'); // 추가
+                transceiver.setCodecPreferences([h264Codec, ...codecs.filter(c => c.mimeType.toLowerCase() !== 'video/h264')]);
+                console.log('Receiver H.264 codec forced:', h264Codec);
+            }
+        }
+        // 🚨🚨------------------------
 
         // 스트림(트랙) 수신시 실행되는 콜백
         pc.ontrack = (e) => {
@@ -91,7 +129,7 @@ async function toggleStream(senderId) {
         };
 
         // offer SDP 생성 후 로컬에 등록
-        const offer = await pc.createOffer({ 
+        const offer = await pc.createOffer({
             offerToReceiveVideo: true,//추가된 코드
             offerToReceiveAudio: false
         });
@@ -159,4 +197,57 @@ function showStream(senderId, stream) {
 function removeStream(senderId) {
     const v = document.getElementById('video-' + senderId);
     if (v) v.remove();
+}
+
+// Mbps 측정 코드 추가
+function startBitrateMonitoring(senderId, pc) {
+    const bitrateStats = {
+        prevBytes: 0,
+        prevTime: 0,
+        prevFrames: 0
+    };
+
+    const intervalId = setInterval(async () => {
+        if (!peerConnections[senderId]) {
+            clearInterval(intervalId);
+            return;
+        }
+
+        const stats = await pc.getStats(null);
+        let mbps = null;
+        let fps = null;
+
+        stats.forEach(report => {
+            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                const now = performance.now();
+                const secondsElapsed = (now - (bitrateStats.prevTime || now)) / 1000;
+
+                if (bitrateStats.prevTime) {
+                    const bytesDelta = report.bytesReceived - bitrateStats.prevBytes;
+                    mbps = (bytesDelta * 8) / (secondsElapsed * 1000 * 1000); // Mbps
+
+                    const framesDelta = report.framesDecoded - bitrateStats.prevFrames;
+                    fps = framesDelta / secondsElapsed;
+                }
+
+                bitrateStats.prevBytes = report.bytesReceived;
+                bitrateStats.prevFrames = report.framesDecoded;
+                bitrateStats.prevTime = now;
+            }
+        });
+
+        // 비디오 해상도 가져오기
+        const video = document.getElementById('video-' + senderId);
+        const width = video?.videoWidth || 0;
+        const height = video?.videoHeight || 0;
+
+        if (mbps !== null && fps !== null) {
+            const senderName = senders[senderId]?.name || senderId;
+            console.log(`[${senderName}]`);
+            console.log(`🌊 수신 비트레이트: ${mbps.toFixed(2)} Mbps`);
+            console.log(`🎞 FPS: ${fps.toFixed(1)} fps`);
+            console.log(`🖥 해상도: ${width} x ${height}`);
+        }
+
+    }, 1000);
 }
