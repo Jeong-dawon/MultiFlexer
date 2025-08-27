@@ -38,10 +38,54 @@
 }
 
 .video {
-  width: 1200px;
+  width: 1600px;
   height: 1000px;
   object-fit: cover;
   margin: 1rem;
   border: 2px solid #ccc;
   border-radius: 8px;
 }
+
+html, body, #root, .App {
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+.App {
+  height: 100vh;
+  width: 100vw;
+  box-sizing: border-box;
+}
+.grid-split {
+  width: 100vw;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: 1fr;
+  height: calc(100vh - 60px); /* 입력창 높이 빼기 */
+  gap: 10px;
+}
+.grid-cell {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #0003;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 10px;
+  min-height: 0;
+}
+.grid-cell video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.split-controls {
+  padding: 10px;
+  color: #fff;
+  font-size: 1.1em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+

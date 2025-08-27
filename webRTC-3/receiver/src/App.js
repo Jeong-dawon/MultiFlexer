@@ -1,159 +1,238 @@
 import "./App.css";
 import React, { useEffect, useState, useRef } from "react";
 
-const App = () => {
-  const [socket, setSocket] = useState(null); // signaling 서버와 통신할 WebSocket
-  const [roomId, setRoomId] = useState(""); // 사용자가 입력한 방 ID 저장
+const MAX_SPLIT = 4; // 최대 화면 분할 개수
 
-  const remoteVideoRef = useRef(null); // 상대방(보내는 쪽)의 영상을 표시할 <video> 태그 접근용 ref
-  const peerConnection = useRef(null); // WebRTC 연결 객체 저장 (Ref 사용)
-  const dataChannelRef = useRef(null); // ✅ RTT 측정을 위한 DataChannel 참조
-  const pingStartTime = useRef(null);   // ✅ RTT 측정용 timestamp
+const App = () => {
+  const [socket, setSocket] = useState(null);
+  const [screenCount, setScreenCount] = useState(1); // 기본: 1화면
+  const [screens, setScreens] = useState(
+    Array(1).fill({ roomId: "", joinedRoom: "", status: "idle" })
+  );
+  // screens: [{roomId, joinedRoom, status: "idle"|"joined"}]
+
+  // roomId별로 PeerConnection, videoRef 관리
+  const peerConnections = useRef({});
+  const remoteVideoRefs = useRef({});
+  const pendingOffers = useRef({});
+  const offerReceived = useRef({});
+  const connectionStarted = useRef({});
+  const [refresh, setRefresh] = useState(0);
 
   const servers = {
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }], // STUN 서버 설정 (P2P 연결 지원)
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
   };
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8080"); // signaling 서버에 연결 (로컬호스트 기준)
-    setSocket(ws); // signaling 서버에 연결 (로컬호스트 기준)
+    const ws = new WebSocket("ws://localhost:8080");
+    setSocket(ws);
 
-    ws.onmessage = async (event) => { // 메시지 수신 시 실행
-      const data = JSON.parse(event.data); // 문자열 메시지를 JSON 객체로 변환
+    ws.onmessage = async (event) => {
+      const data = JSON.parse(event.data);
+      const { type, roomId } = data;
+      if (!roomId) return;
 
-      // 직접 offer / answer / candidate 구분
-      if (data.type === "offer") { // offer를 받으면 sender가 연결을 시도한 것
-        console.log("📩 Received offer from sender");
+      if (type === "offer") {
+        pendingOffers.current[roomId] = data;
+        offerReceived.current[roomId] = true;
+        setRefresh(r => r + 1);
+      }
+      if (type === "candidate") {
+        if (peerConnections.current[roomId]) {
+          try {
+            await peerConnections.current[roomId].addIceCandidate(data.candidate);
+          } catch { }
+        }
+      }
+    };
 
-        peerConnection.current = new RTCPeerConnection(servers); // 피어 연결 객체 생성
+    return () => ws.close();
+  }, []);
 
-        // ✅ RTT 기반 측정용 DataChannel 핸들러
-        peerConnection.current.ondatachannel = (event) => {
-          const channel = event.channel;
-          if (channel.label === "timestampChannel") {
-            console.log("📥 Received DataChannel (RTT enabled)");
-            dataChannelRef.current = channel;
+  // 화면 개수 바뀔 때 screens 상태 조정
+  useEffect(() => {
+    setScreens((prev) => {
+      const arr = [];
+      for (let i = 0; i < screenCount; i++) {
+        arr.push(prev[i] || { roomId: "", joinedRoom: "", status: "idle" });
+      }
+      return arr;
+    });
+  }, [screenCount]);
 
-            channel.onopen = () => {
-              console.log("📡 DataChannel is open (receiver)");
+  // 각 칸의 방 접속 및 화면 수신 시작
+  const joinRoom = async (idx) => {
+    const roomId = screens[idx].roomId.trim();
+    if (!roomId || !socket) return;
+    // 이미 해당 칸에 연결된 방이 있다면 연결 끊기
+    if (screens[idx].joinedRoom) {
+      stopReceiving(screens[idx].joinedRoom, idx);
+    }
 
-              // ✅ ping 보내기 시작
-              const sendPing = () => {
-                if (channel.readyState === "open") {
-                  const now = Date.now();
-                  pingStartTime.current = now;
-                  channel.send(JSON.stringify({ type: "ping", t: now }));
-                }
-              };
-              setInterval(sendPing, 1000); // 1초마다 ping 전송
-            };
+    socket.send(JSON.stringify({ type: "join", roomId, role: "receiver" }));
+    remoteVideoRefs.current[roomId] = React.createRef();
 
-            channel.onmessage = (e) => {
-              const msg = JSON.parse(e.data);
-              if (msg.type === "pong" && pingStartTime.current) {
-                const now = Date.now();
-                const rtt = now - pingStartTime.current;
-                const latency = rtt / 2;
-                console.log(`⏳ RTT: ${rtt}ms → Estimated one-way latency: ${latency}ms`);
-                pingStartTime.current = null;
-              }
-            };
+    // offer 기다림
+    let offer = pendingOffers.current[roomId];
+    if (!offer) {
+      socket.send(JSON.stringify({ type: "need-offer", roomId }));
+      await new Promise((resolve) => {
+        const handler = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === "offer" && data.roomId === roomId) {
+            pendingOffers.current[roomId] = data;
+            offerReceived.current[roomId] = true;
+            setRefresh((r) => r + 1);
+            socket.removeEventListener("message", handler);
+            resolve();
           }
         };
-        
-        // sender가 보낸 영상 스트림 수신 처리
-        peerConnection.current.ontrack = (event) => {
-          console.log("🎥 Remote track received");
-          remoteVideoRef.current.srcObject = event.streams[0]; // 영상 스트림을 video 태그에 연결
-
-          // 📉 FPS 측정 시작
-          const video = remoteVideoRef.current;
-          let frameCount = 0;
-          let lastTime = performance.now();
-
-          const countFrame = (now, metadata) => {
-            frameCount++;
-            if (now - lastTime >= 1000) {
-              console.log(`📉 FPS: ${frameCount}`);
-              frameCount = 0;
-              lastTime = now;
-            }
-
-            video.requestVideoFrameCallback(countFrame);
-          };
-          video.requestVideoFrameCallback(countFrame);
-
-      };
-
-      // ICE 후보가 준비되었을 때 실행
-      peerConnection.current.onicecandidate = (event) => {
-        if (event.candidate) {
-          console.log("📤 Sending ICE candidate");
-          ws.send(
-            JSON.stringify({
-              type: "signal", // signaling 메시지로 ICE 후보 전송
-              roomId, // 어떤 방인지 포함
-              signalData: {
-                type: "candidate", // 후보 타입
-                candidate: event.candidate, // ICE 후보 자체
-              },
-            })
-          );
-        }
-      };
-
-      await peerConnection.current.setRemoteDescription(data); // sender의 SDP 설정
-      const answer = await peerConnection.current.createAnswer(); // 응답 SDP 생성
-      await peerConnection.current.setLocalDescription(answer); // 내 SDP 설정
-
-      // 서버로 내 SDP(answer) 전송
-      ws.send(
-        JSON.stringify({
-          type: "signal",
-          roomId,
-          signalData: peerConnection.current.localDescription,
-        })
-      );
+        socket.addEventListener("message", handler);
+      });
+      offer = pendingOffers.current[roomId];
     }
 
-    if (data.type === "candidate") {
-      console.log("📥 Received ICE candidate");
-      await peerConnection.current?.addIceCandidate(data.candidate); // 수신한 ICE 후보 등록
-    }
+    // clean-up (덮어쓰기)
+    stopReceiving(roomId, idx, { keepOffer: true });
+
+    const pc = new RTCPeerConnection(servers);
+    peerConnections.current[roomId] = pc;
+
+    pc.ontrack = (event) => {
+      if (remoteVideoRefs.current[roomId]?.current) {
+        remoteVideoRefs.current[roomId].current.srcObject = event.streams[0];
+      }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.send(
+          JSON.stringify({
+            type: "signal",
+            roomId,
+            signalData: {
+              type: "candidate",
+              candidate: event.candidate,
+            },
+          })
+        );
+      }
+    };
+
+    await pc.setRemoteDescription(offer);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    socket.send(
+      JSON.stringify({
+        type: "signal",
+        roomId,
+        signalData: pc.localDescription,
+      })
+    );
+
+    // 화면 상태 갱신
+    setScreens((prev) => {
+      const arr = [...prev];
+      arr[idx] = { roomId, joinedRoom: roomId, status: "joined" };
+      return arr;
+    });
+    connectionStarted.current[roomId] = true;
+    setRefresh(r => r + 1);
   };
 
-  return () => ws.close(); // 컴포넌트 언마운트 시 WebSocket 닫기
-}, [roomId]); // roomId가 바뀔 때마다 WebSocket 새로 연결
+  // 화면 끊기
+  const stopReceiving = (roomId, idx, options = {}) => {
+    const pc = peerConnections.current[roomId];
+    if (pc) {
+      pc.close();
+      delete peerConnections.current[roomId];
+    }
+    if (remoteVideoRefs.current[roomId]?.current) {
+      remoteVideoRefs.current[roomId].current.srcObject = null;
+    }
+    connectionStarted.current[roomId] = false;
+    setScreens((prev) => {
+      const arr = [...prev];
+      arr[idx] = { ...arr[idx], joinedRoom: "", status: "idle" };
+      return arr;
+    });
+    setRefresh(r => r + 1);
+  };
 
-const joinRoom = () => {
-  if (!roomId || !socket) return; // 방 ID나 소켓이 없으면 아무 것도 하지 않음
-  socket.send(JSON.stringify({ type: "join", roomId, role: "receiver" })); // 서버에 방 참가 요청 전송
-  console.log(`📡 Joined room ${roomId} as receiver`); // 콘솔에 참가 로그 출력
-};
-
-return (
-  <div className="App">
-    <h1>Receiver</h1>
-    <input
-      type="text"
-      placeholder="Enter Room ID"
-      value={roomId}
-      onChange={(e) => setRoomId(e.target.value)}
-    />
-    <button onClick={joinRoom}>Connect to Sender</button>
-    <div>
-      Remote Video
-      <video className="video" ref={remoteVideoRef} autoPlay playsInline />
+  // ...
+  return (
+    <div className="App">
+      <div className="split-controls">
+        <b>화면 분할:</b>
+        <select
+          value={screenCount}
+          onChange={e => setScreenCount(Number(e.target.value))}
+        >
+          {[1, 2, 3, 4].map(n =>
+            <option key={n} value={n}>{n}개</option>
+          )}
+        </select>
+      </div>
+      <div className="grid-split">
+        <div
+          className="grid-split"
+          style={
+            screenCount === 1
+              ? { gridTemplateColumns: "1fr", gridTemplateRows: "1fr", height: "calc(100vh - 60px)" }
+              : { gridTemplateColumns: "repeat(2, 1fr)", gridAutoRows: "1fr", height: "calc(100vh - 60px)" }
+          }
+        >
+          {screens.map((screen, idx) => (
+            <div className="grid-cell" key={idx}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "#7af" }}>화면 {idx + 1}</span>
+                <input
+                  style={{ flex: 1 }}
+                  type="text"
+                  placeholder="방 ID"
+                  value={screen.roomId}
+                  onChange={e => {
+                    setScreens(screens => {
+                      const arr = [...screens];
+                      arr[idx] = { ...arr[idx], roomId: e.target.value };
+                      return arr;
+                    });
+                  }}
+                  disabled={!!screen.joinedRoom}
+                />
+                {!screen.joinedRoom ? (
+                  <button onClick={() => joinRoom(idx)}>
+                    연결
+                  </button>
+                ) : (
+                  <button
+                    style={{ color: "#c22" }}
+                    onClick={() => stopReceiving(screen.joinedRoom, idx)}
+                  >해제</button>
+                )}
+              </div>
+              <video
+                ref={
+                  remoteVideoRefs.current[screen.joinedRoom || screen.roomId]
+                  || (remoteVideoRefs.current[screen.roomId] = React.createRef())
+                }
+                autoPlay
+                playsInline
+                muted
+                style={{
+                  marginTop: 8,
+                  width: "100%",
+                  height: "100%",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
-export default App; // 이 컴포넌트를 다른 곳에서 사용할 수 있도록 export
 
-
-/*
-
-webRTC를 이용해 실시간 화면 공유를 시그널링 서버와 sender, receiver로 구현.
-
-*/
+export default App;
