@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Receiver - Multi Split</title>
+  <style>
+    body { margin: 0; background: #fff; color: #fff; font-family: sans-serif; }
+    .split-controls {
+      padding: 10px;
+      color: #fff;
+      font-size: 1.1em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .grid-split {
+      width: 100vw;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-auto-rows: 1fr;
+      height: calc(100vh - 60px);
+      gap: 10px;
+    }
+    .grid-cell {
+      border-radius: 12px;
+      box-shadow: 0 2px 8px #0003;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: stretch;
+      padding: 10px;
+      min-height: 0;
+      background: #fff;
+    }
+    .grid-cell video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .screen-label {
+      color: #7af;
+      font-weight: bold;
+    }
+    button { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="App">
+    <div class="split-controls">
+      <b style="color:#4d4c4c">화면 분할:</b>
+      <select id="screenCount">
+        <option value="1">1개</option>
+        <option value="2">2개</option>
+        <option value="3">3개</option>
+        <option value="4">4개</option>
+      </select>
+    </div>
+    <div id="grid" class="grid-split"></div>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>
+
