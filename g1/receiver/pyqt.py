@@ -1,4 +1,4 @@
-# mainframe에 바로 송출하는 버전
+# senderlist 썸네일 화면 뜨는 버전
 # receiver - main.py
 # -*- coding: utf-8 -*-
 import os, sys, signal, threading
@@ -170,14 +170,23 @@ class Peer(QtCore.QObject):
         self.webrtc.connect('on-negotiation-needed', self._on_negotiation_needed)
         self.webrtc.connect('notify::ice-connection-state', self._on_ice_state)
 
-        # 🔸 중복 오퍼 방지 플래그 초기화
-        self._negotiating = False
 
-        # 수신 코덱(H264) 지정
+        #self.webrtc.emit(
+            #'add-transceiver',
+            #GstWebRTC.WebRTCRTPTransceiverDirection.RECVONLY,
+            #Gst.Caps.from_string("application/x-rtp,media=video,encoding-name=H264,clock-rate=90000,packetization-mode=(string)1")
+        #)
+        # 우선 VP8만 (Safari 필요하면 H264도 추가 가능)
+        #self.webrtc.emit(
+            #'add-transceiver',
+            #GstWebRTC.WebRTCRTPTransceiverDirection.RECVONLY,
+            #Gst.Caps.from_string("application/x-rtp,media=video,encoding-name=VP8,clock-rate=90000")
+        #)
+        # 동적 payload 범위(96~127)에서 하나씩 지정
         h264_caps = (
             "application/x-rtp, "
             "media=(string)video, encoding-name=(string)H264, "
-            "clock-rate=(int)90000, "
+            "payload=(int)102, clock-rate=(int)90000, "
             "packetization-mode=(string)1"
         )
         self.webrtc.emit(
@@ -199,10 +208,6 @@ class Peer(QtCore.QObject):
         self.main_balance  = None
         self.main_sink  = None
 
-        # !! __init__ 끝부분에 추가
-        self._negotiating = False
-
-
     def start(self):
         if self._started:
             return
@@ -217,6 +222,7 @@ class Peer(QtCore.QObject):
 
     # --- WebRTC ---
     def _on_negotiation_needed(self, webrtc):
+        # 중복 create-offer 방지
         if self._negotiating:
             return
         self._negotiating = True
@@ -225,29 +231,38 @@ class Peer(QtCore.QObject):
             try:
                 promise.wait()
                 reply = promise.get_reply()
-                offer = reply.get_value('offer')
+                offer = reply.get_value('offer')  # GstWebRTCSessionDescription
                 webrtc.emit('set-local-description', offer, None)
+
+                # 시그널링으로 송신자에게 Offer 전송
                 sdp_text = offer.sdp.as_text()
-                # ✅ MainWindow가 소켓으로 내보내도록 시그널 emit
-                self.offer_ready.emit(self.sender_id, sdp_text)
+                self._send_signal(self.sender_id, {
+                    'type': 'offer',
+                    'payload': {'type': 'offer', 'sdp': sdp_text}
+                })
             finally:
                 self._negotiating = False
 
         promise = Gst.Promise.new_with_change_func(_on_offer_created, None)
         webrtc.emit('create-offer', None, promise)
 
+
     def apply_remote_answer(self, sdp_text: str):
+        # 0) 타입/형식 간이 검증(형식 깨진 SDP로 인한 gstsdp 크래시 방지)
         if not isinstance(sdp_text, str):
             print("[Peer] apply_remote_answer: not a string payload:", type(sdp_text)); return
         if "v=" not in sdp_text or "m=" not in sdp_text:
             print("[Peer] apply_remote_answer: malformed SDP\n", sdp_text[:200], "...")
             return
+        # 1) SDP 객체 생성
         res, sdpmsg = GstSdp.SDPMessage.new()
         if res != GstSdp.SDPResult.OK:
             print("[Peer] SDPMessage.new failed:", res); return
+        # 2) 파싱 결과 확인 (실패하면 절대 set-remote-description 호출하지 않음)
         res = GstSdp.sdp_message_parse_buffer(sdp_text.encode("utf-8"), sdpmsg)
         if res != GstSdp.SDPResult.OK:
             print("[Peer] sdp_message_parse_buffer failed:", res); return
+        # 3) 안전하게 적용 (Promise로 결과/에러를 로그로 받기)
         answer = GstWebRTC.WebRTCSessionDescription.new(
             GstWebRTC.WebRTCSDPType.ANSWER, sdpmsg
         )
@@ -256,12 +271,21 @@ class Peer(QtCore.QObject):
         promise = Gst.Promise.new_with_change_func(_on_set_remote_done, None)
         self.webrtc.emit("set-remote-description", answer, promise)
 
+
+
+
+
     def add_remote_candidate(self, mline: int, cand: str):
         self.webrtc.emit('add-ice-candidate', int(mline), cand)
 
+    #def _on_ice_candidate(self, element, mlineindex, candidate):
+        #self.ice_candidate_out.emit(self.sender_id, int(mlineindex), candidate or "")
     def _on_ice_candidate(self, webrtc, mlineindex, candidate):
-        # ✅ MainWindow가 소켓으로 내보내도록 시그널 emit
-        self.ice_candidate_out.emit(self.sender_id, int(mlineindex), candidate or "")
+        # 시그널링으로 candidate 전송
+        self._send_signal(self.sender_id, {
+            'type': 'candidate',
+            'payload': {'sdpMLineIndex': int(mlineindex), 'candidate': candidate}
+        })
 
     def _on_ice_state(self, obj, pspec):
         try:
@@ -403,9 +427,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sio = socketio.Client(logger=False, engineio_logger=False)
         self._bind_socket_events()
 
-        self.peers = {}            # sender_id -> Peer
-        self.main_widgets = {}     # ✅ sender_id -> VideoWidget (메인 프레임용)
-        self.thumb_widgets = {}    # (더 이상 사용 안 하지만, 기존 코드 호환을 위해 남김)
+        self.peers = {}          # sender_id -> Peer
+        self.thumb_widgets = {}  # sender_id -> VideoWidget
 
         self._sio_running = False
         self._pending_join_payload = None
@@ -581,6 +604,9 @@ class MainWindow(QtWidgets.QMainWindow):
             typ = data.get('type')
             frm = data.get('from')
             payload = data.get('payload') or {}
+            #if typ == 'answer' and frm:
+                #sdp_text = payload['sdp'] if isinstance(payload, dict) else payload
+                #self.bridge.answer.emit(frm, sdp_text)
             if typ == 'answer' and frm:
                 sdp_text = ""
                 if isinstance(payload, dict):
@@ -591,6 +617,9 @@ class MainWindow(QtWidgets.QMainWindow):
                     print("[SIO] answer without sdp, ignored:", type(payload))
                     return
                 self.bridge.answer.emit(frm, sdp_text)
+
+
+
             elif typ == 'candidate' and frm:
                 cand = payload.get('candidate')
                 mline = int(payload.get('sdpMLineIndex') or 0)
@@ -619,11 +648,6 @@ class MainWindow(QtWidgets.QMainWindow):
         row = self.findChild(QtWidgets.QFrame, f"row-{sender_id}")
         if row:
             row.deleteLater()
-        # 메인 뷰 제거
-        if sender_id in self.main_widgets:
-            w = self.main_widgets.pop(sender_id)
-            w.setParent(None); w.deleteLater()
-        # 기존 썸네일 자료구조도 비워줌(안 쓰지만 혹시 남아있을 수 있으니)
         if sender_id in self.thumb_widgets:
             w = self.thumb_widgets.pop(sender_id)
             w.setParent(None); w.deleteLater()
@@ -669,22 +693,21 @@ class MainWindow(QtWidgets.QMainWindow):
             peer.offer_ready.connect(self._on_offer_ready)
             peer.first_frame.connect(self._on_first_frame)
 
-            # ✅ 썸네일 대신 즉시 메인 프레임에 풀 화면으로 자리 배치
-            vw = VideoWidget(title=(display_name or sender_id))
-            self.main_widgets[sender_id] = vw
-            self.snap.assign_widget(sender_id, vw, "full")
+            # 썸네일 위젯 생성(사람이 읽을 이름 표시)
+            thumb = DraggableThumb(sender_id, title=(display_name or sender_id))
+            self.thumb_widgets[sender_id] = thumb
+            self.thumb_row.addWidget(thumb)
 
-            peer.start()  # pad-added → first_frame에서 attach
+            peer.start()  # pad-added 후 GLib.idle_add에서 디코드 체인/싱크 구성 → first_frame에서 attach
 
-        # webrtcbin이 on-negotiation-needed에서 자동으로 offer 생성
+        # webrtcbin이 on-negotiation-needed에서 자동으로 offer를 생성함
 
     def _on_first_frame(self, sender_id: str):
         p = self.peers.get(sender_id)
         if not p: return
-        vw = self.main_widgets.get(sender_id)
-        if vw and p.thumb_sink:
-            # 분기 미구현: thumb_sink를 메인 뷰에 바로 붙인다
-            p.attach_thumb_to(vw)
+        thumb = self.thumb_widgets.get(sender_id)
+        if thumb and p.thumb_sink:
+            p.attach_thumb_to(thumb.video)
 
     def _on_ice_candidate_out(self, sender_id: str, mline: int, cand: str):
         self._emit('signal', {
@@ -703,9 +726,14 @@ class MainWindow(QtWidgets.QMainWindow):
         })
         print("[SIO] offer 전송 →", sender_id)
 
-    # 드롭 처리: (현재는 미사용) – 기존 UI 유지용
+    # 드롭 처리: 확장용(현재는 썸네일만 사용)
     def _on_dropped_to_cell(self, sender_id: str, position: str):
-        pass
+        p = self.peers.get(sender_id)
+        if not p:
+            return
+        vw = VideoWidget(title=f"{sender_id} - {position}")
+        self.snap.assign_widget(sender_id, vw, position)
+        # p.attach_main_to(vw)  # main_sink 확장 시 사용
 
     # ---------- 설정/유틸 ----------
     def _toggle_fullscreen(self):
@@ -745,14 +773,11 @@ class MainWindow(QtWidgets.QMainWindow):
         for sid, p in list(self.peers.items()):
             p.stop()
         self.peers.clear()
-        for sid, w in list(self.main_widgets.items()):
-            w.setParent(None); w.deleteLater()
-        self.main_widgets.clear()
         for sid, w in list(self.thumb_widgets.items()):
             w.setParent(None); w.deleteLater()
         self.thumb_widgets.clear()
 
-# ------------------- 드래그 가능한 썸네일(미사용, 호환 유지) -------------------
+# ------------------- 드래그 가능한 썸네일 -------------------
 class DraggableThumb(QtWidgets.QFrame):
     def __init__(self, sender_id: str, title: str):
         super().__init__()
@@ -766,7 +791,12 @@ class DraggableThumb(QtWidgets.QFrame):
         lay.addWidget(self.video, 1); lay.addWidget(name, 0, QtCore.Qt.AlignLeft)
 
     def mousePressEvent(self, e: QtGui.QMouseEvent):
-        pass  # 미사용
+        if e.button() == QtCore.Qt.LeftButton:
+            drag = QtGui.QDrag(self)
+            mime = QtCore.QMimeData()
+            mime.setData("application/x-sender-id", self.sender_id.encode("utf-8"))
+            drag.setMimeData(mime)
+            drag.exec_(QtCore.Qt.MoveAction)
 
 # ------------------- 엔트리 -------------------
 def main():
