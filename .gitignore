@@ -47,4 +47,4 @@ coverage/
 # OS / 기타
 # =======================================
 Thumbs.db
-
+package-lock.json
