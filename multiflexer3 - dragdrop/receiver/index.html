@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receiver</title>
+    <link rel="stylesheet" href="index.css">
+
+
+</head>
+
+<body>
+    <h2>Receiver 화면</h2>
+    <input id="password" placeholder="방 비밀번호">
+    <br>
+    <div id="roomNum" class="roomNum"></div>
+    <button id="join">방 입장</button>
+    <button id="del">방 삭제</button>
+    <br><br>
+    <div id="senderList"></div>
+    <hr>
+    <div class="container">
+        <h1>JavaScript - Drag and Drop</h1>
+        <div class="drop-targets">
+            <div class="box">
+            </div>
+            <div class="box"></div>
+            <div class="box">
+
+            </div>
+            <div id="screens" style="display: flex; gap: 10px;"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="main.js"></script>
+</body>
+
+</html>

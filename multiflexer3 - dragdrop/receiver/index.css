@@ -1,0 +1,43 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 20px;
+}
+
+div {
+    display: block;
+    unicode-bidi: isolate;
+}
+
+.hide {
+    display: none;
+}
+
+
+
+.drop-targets {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.box {
+    height: 150px;
+    width: 150px;
+    border: solid 3px #ccc;
+    margin: 10px;
+    display: flex;
+}
+.box.drag-over {
+    border: dashed 3px red;
+}
