@@ -1,0 +1,63 @@
+<!--<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Receiver</title>
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+  <h2>Receiver 화면</h2>
+  <input id="password" placeholder="방 비밀번호" />
+  <button id="join">방 입장</button>
+  <button id="del">방 삭제</button>
+  <div id="roomNum" class="roomNum"></div>
+  <hr />
+  <div id="senderList"></div>
+  <hr />
+  <div id="mainFrame" class="main-frame" ondragover="event.preventDefault()" ondrop="handleDrop(event)"></div>
+  <h4>Sender 화면 목록</h4>
+  <br />
+  <div id="screens" class="thumbnail-row"></div>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>-->
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Receiver</title>
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+  <h2>Receiver</h2>
+  <input id="password" placeholder="방 비밀번호" />
+  <button id="join">방 입장</button>
+  <button id="del">방 삭제</button>
+  <div id="roomNum" class="roomNum"></div>
+  <hr />
+  <div id="senderList"></div>
+  <hr />
+  <div id="mainFrame" class="main-frame">
+    <div id="snapOverlay" class="snap-overlay">
+      <div class="drop-zone" data-position="full"></div>
+      <div class="drop-zone" data-position="left"></div>
+      <div class="drop-zone" data-position="right"></div>
+      <div class="drop-zone" data-position="topleft"></div>
+      <div class="drop-zone" data-position="topright"></div>
+      <div class="drop-zone" data-position="bottomleft"></div>
+      <div class="drop-zone" data-position="bottomright"></div>
+    </div>
+  </div>
+
+  <h4>Sender 화면 목록</h4>
+  <br />
+  <div id="screens" class="thumbnail-row"></div>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
+
