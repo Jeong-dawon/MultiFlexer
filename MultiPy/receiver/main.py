@@ -26,8 +26,7 @@ import socketio
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 # ---------- 설정 ----------
-SIGNALING_URL = "https://192.168.0.54:3001"
-ROOM_PASSWORD  = "1"
+SIGNALING_URL = "https://223.194.129.216:3001"
 RECEIVER_NAME  = "Receiver-1"
 
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -679,7 +678,7 @@ class MultiReceiverManager:
         def connect():
             print("[SIO] connected:", self.sio.sid)
             self.sio.emit('join-room',
-                          {'role':'receiver','password':ROOM_PASSWORD,'name':RECEIVER_NAME},
+                          {'role':'receiver', 'name':RECEIVER_NAME},
                           callback=lambda ack: print("[SIO] join-room ack:", ack))
 
         @self.sio.on('sender-list')
