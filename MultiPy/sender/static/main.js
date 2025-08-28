@@ -2,7 +2,7 @@
 // WebRTC Sender (화면 공유 송신자) - 자동 시작 버전
 // ======================================
 
-const socket = io('https://192.168.0.54:3001');
+const socket = io('https://223.194.129.216:3001');
 
 let localStream = null;                   // 현재 송출 중인 화면 스트림
 const peerConnections = {};               // receiverId -> RTCPeerConnection
@@ -10,7 +10,7 @@ const pendingOffers = {};                 // offer 보류
 const pendingCandidates = {};             // ICE candidate 보류 큐
 const servers = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-let currentRoom = '';   // 현재 참여 중인 방 이름
+
 let senderName = '';    // 송신자 이름
 let shareAnnounced = false; // sender-share-started 전송 여부
 let statsInterval = null;   // 송신 통계 타이머
@@ -236,9 +236,8 @@ shareStartBtn.style.display = 'none';  // 시작 버튼은 기본 숨김
 shareStopBtn.style.display  = 'none';
 
 enterBtn.addEventListener('click', async () => {
-  const pw = document.getElementById('startPassword').value.trim();
   const name = document.getElementById('senderName').value.trim();
-  if (!pw)   return alert('방 비밀번호 입력!');
+  if (!name) return alert('이름 입력!');
   if (!name) return alert('이름 입력!');
 
   enterBtn.disabled = true;
@@ -256,9 +255,7 @@ enterBtn.addEventListener('click', async () => {
 
   const onSuccess = async ({ room, name: confirmedName }) => {
     if (handled) return; handled = true;
-    currentRoom = room || pw;
     senderName  = confirmedName || name;
-    roomDisplay.innerText = currentRoom;
     myNameEl.innerText    = senderName;
 
     startCard.style.display   = 'none';
@@ -281,10 +278,10 @@ enterBtn.addEventListener('click', async () => {
   socket.once('join-complete', onSuccess);
   socket.once('join-error', onError);
 
-  socket.emit('join-room', { role: 'sender', password: pw, name }, (ack) => {
+  socket.emit('join-room', { role: 'sender', name }, (ack) => {
     if (handled) return;
     if (ack) {
-      if (ack.success) onSuccess({ room: pw, name: ack.name || name });
+      if (ack.success) onSuccess({ name: ack.name || name });
       else onError(ack.message || '입장 실패');
     }
   });

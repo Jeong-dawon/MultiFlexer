@@ -227,7 +227,6 @@
   <div id="startCard" class="card active">
     <h2>Client</h2>
     <h3>화면 공유 시작</h3>
-    <input type="text" id="startPassword" placeholder="방 비밀번호 입력" />
     <input type="text" id="senderName" placeholder="송신자 이름 (예: 황기태)" />
     <button id="enterBtn" class="primary">입장</button>
   </div>
@@ -235,8 +234,6 @@
   <header style="display:none;" id="mainHeader">
     <h1>MultiFlexer Sender</h1>
     <div class="room-info">
-      <div>ROOM:</div>
-      <div id="roomDisplay">-</div>
       <div>Name:</div>
       <div id="myName"></div>
     </div>
@@ -255,12 +252,6 @@
     </div>
 
     <div class="status-panel">
-      <div class="box">
-        <div class="section-title">현재 연결된 MultiFlexer</div>
-        <div id="receiverList" class="receiver-list">
-          <!-- 수신자 표시 -->
-        </div>
-      </div>
       <div class="box">
         <div class="section-title">내 화면 미리보기</div>
         <div class="video-preview" id="localPreview">
