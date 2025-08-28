@@ -1,6 +1,7 @@
+
+# os별 videosink 지정 + pyqt창 출력 버전(유진 풀화면 버전 합치기 전)
 # ================================================================
-# Multi-Sender WebRTC
-# Receiver (GStreamer + Socket.IO + PyQt5, Overlay)
+# Multi-Sender WebRTC Receiver (GStreamer + Socket.IO + PyQt5, Overlay)
 # ================================================================
 # - qt5videosink 대신 GstVideoOverlay 지원 싱크(glimagesink/d3d11videosink/avfvideosink 등) 사용
 # - prepare-window-handle 시점에 PyQt 위젯 winId를 넘겨 임베드
@@ -100,6 +101,22 @@ def _set_props_if_supported(element, **kwargs):
         except Exception:
             pass
 
+# ★ 로그 헬퍼: GStreamer 요소의 공장/요소 이름 안전하게 얻기
+def _ename(e):
+    if not e:
+        return "None"
+    try:
+        fac = e.get_factory()
+        if fac:
+            return fac.get_name()
+    except Exception:
+        pass
+    try:
+        return e.get_name()
+    except Exception:
+        return e.__class__.__name__
+
+
 
 # ---------- HW 디코더 & Overlay 싱크 선택 ----------
 def get_decoder_and_sink():
@@ -123,6 +140,8 @@ def get_decoder_and_sink():
     else:
         decoder = _first_available("avdec_h264")
         conv    = _first_available("videoconvert")
+    if conv:
+        print(f"[INFO] video convert 사용: {conv.get_name()}")
 
     # ▶ Overlay 가능한 싱크 우선
     if "windows" in sysname:
@@ -131,12 +150,11 @@ def get_decoder_and_sink():
         sink = _first_available("avfvideosink", "autovideosink")  # avfvideosink가 Overlay 임베드 안 되면 별도 창 폴백
     else:
         sink = _first_available("glimagesink", "xvimagesink", "autovideosink")
-
-    # ⬅️ Fallback 싱크에도 로그 추가
     if sink:
-        print(f"[INFO] 비디오 싱크 사용: {sink.get_name()}")
+        print(f"[INFO] video sink 사용: {sink.get_name()}")
 
     _set_props_if_supported(sink, force_aspect_ratio=True, fullscreen=False, handle_events=True)
+    
     return decoder, conv, sink
 
 
@@ -519,7 +537,7 @@ def integrate_glib_into_qt():
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     ui = ReceiverWindow()
-    ui.show()  # 필요 시 ui.showFullScreen()
+    ui.show()  # ui.showFullScreen(), ui.show() 
 
     _glib_timer = integrate_glib_into_qt()
 
