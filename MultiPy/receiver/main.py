@@ -11,6 +11,7 @@
 #   전환 시간 측정/로그 출력 (키만 눌러도, 대상이 같으면 측정/로그 하지 않음)
 # ================================================================
 
+import ssl
 import sys, signal, threading, os, platform, time
 import gi
 
@@ -25,9 +26,12 @@ import socketio
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 # ---------- 설정 ----------
-SIGNALING_URL = "http://localhost:3001"
+SIGNALING_URL = "https://192.168.0.54:3001"
 ROOM_PASSWORD  = "1"
 RECEIVER_NAME  = "Receiver-1"
+
+ssl._create_default_https_context = ssl._create_unverified_context
+
 
 Gst.init(None)
 
@@ -567,7 +571,7 @@ class PeerReceiver:
 class MultiReceiverManager:
     def __init__(self, ui_window: ReceiverWindow):
         self.ui = ui_window
-        self.sio = socketio.Client(logger=False, engineio_logger=False)
+        self.sio = socketio.Client(logger=False, engineio_logger=False, ssl_verify=False, websocket_extra_options={"sslopt": {"cert_reqs": ssl.CERT_NONE}},)
         self.peers = {}          # sender_id -> PeerReceiver
         self._order = []         # 등록 순서 유지
         self.active_sender_id = None
@@ -663,10 +667,12 @@ class MultiReceiverManager:
 
     def _sio_connect(self):
         try:
+            
             self.sio.connect(SIGNALING_URL, transports=['websocket'])
             self.sio.wait()
         except Exception as e:
             print("[SIO] connect error:", e)
+        
 
     def _bind_socket_events(self):
         @self.sio.event
