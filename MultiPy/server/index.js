@@ -140,7 +140,7 @@ io.on('connection', (socket) => {
 });
 
 // ---------- Start Server ----------
-const PORT = 3001;
+const PORT = 3000;
 server.listen(PORT, () => {
   console.log(`Signaling server listening on port ${PORT}`);
 });
