@@ -11,8 +11,9 @@ from config import SIGNALING_URL, RECEIVER_NAME, SWITCH_COOLDOWN_MS
 from peer_receiver import PeerReceiver
 
 class MultiReceiverManager:
-    def __init__(self, ui_window):
+    def __init__(self, ui_window, view_manager=None):
         self.ui = ui_window
+        self.view_manager = view_manager 
         self.sio = socketio.Client(
             logger=False, 
             engineio_logger=False, 
@@ -28,6 +29,12 @@ class MultiReceiverManager:
 
         self._bind_socket_events()
         self.ui.switchRequested.connect(self.switch_by_offset)
+
+        self._cell_assign: dict[int, str] = {}   # cell_index -> sender_id
+
+        if self.view_manager:
+            self.view_manager.bind_manager(self)
+            self.view_manager.set_senders_provider(self.list_active_senders)
 
     def start(self):
         """매니저 시작"""
@@ -49,6 +56,71 @@ class MultiReceiverManager:
     def _active_sender_ids(self):
         """현재 '공유 중'인 sender들만 대상으로 전환"""
         return [sid for sid, p in self.peers.items() if p.share_active]
+
+    def list_active_senders(self):
+        return [(sid, p.sender_name) for sid, p in self.peers.items()]
+    
+    def pause_all_streams(self):
+        for p in self.peers.values():
+            try:
+                p.pause_pipeline()
+            except Exception:
+                pass
+
+        self._cell_assign.clear()
+
+    def assign_sender_to_cell(self, cell_index: int, sender_id: str):
+        if sender_id not in self.peers or not (0 <= cell_index):
+            return
+        target = self.peers[sender_id]
+
+        # 1) 기존 다른 셀에서 같은 sender 제거
+        for idx, sid in list(self._cell_assign.items()):
+            if sid == sender_id and idx != cell_index:
+                try:
+                    # 셀 비우기
+                    self.view_manager.cells[idx].clear()
+                except Exception:
+                    pass
+                self._cell_assign.pop(idx, None)
+
+        # 2) 다른 sender들은 pause
+        for sid, p in self.peers.items():
+            if sid != sender_id:
+                try:
+                    p.pause_pipeline()
+                except Exception:
+                    pass
+
+        # 3) UI 스레드에서 대상 sender 위젯을 셀에 재배치
+        def _ensure_and_put():
+            w = self.ui.ensure_widget(sender_id, target.sender_name)
+            if w and self.view_manager and 0 <= cell_index < len(self.view_manager.cells):
+                try:
+                    w.setParent(None)
+                except Exception:
+                    pass
+                self.view_manager.cells[cell_index].put_widget(w)
+
+                if not w.isVisible():
+                    w.show()
+
+                GLib.idle_add(target.update_window_from_widget, w)
+
+                from config import UI_OVERLAY_DELAY_MS
+                def _resume_and_rebind():
+                    target.resume_pipeline()
+                    target._force_overlay_handle()
+                    return False
+                GLib.timeout_add(UI_OVERLAY_DELAY_MS, _resume_and_rebind)
+
+            return False
+        GLib.idle_add(_ensure_and_put)
+
+        # 4) 상태 갱신
+        self.active_sender_id = sender_id
+        self._cell_assign[cell_index] = sender_id
+
 
     def _nudge_focus(self):
         def _do():
@@ -152,7 +224,7 @@ class MultiReceiverManager:
                 peer = PeerReceiver(
                     self.sio, sid, name, self.ui,
                     on_ready=self._on_switch_ready,
-                    on_down=lambda x, r="ice": self._remove_sender(x, reason=r)
+                    on_down=lambda x, reason="ice", **_: self._remove_sender(x, reason=reason)
                 )
                 self.peers[sid] = peer
                 if sid not in self._order:
@@ -172,15 +244,20 @@ class MultiReceiverManager:
         def on_sender_share_started(data):
             sid = data.get('id') or data.get('senderId') or data.get('from')
             name = data.get('name')
-            if not sid: return
+            if not sid:
+                return
+
+            # peer가 아직 없으면 생성
             if sid not in self.peers:
                 GLib.idle_add(self.ui.ensure_widget, sid, name or sid)
                 peer = PeerReceiver(
                     self.sio, sid, name or sid, self.ui,
-                    on_ready=self._on_switch_ready, on_down=lambda x, r="ice": self._remove_sender(x, reason=r)
+                    on_ready=self._on_switch_ready,
+                    on_down=lambda x, reason="ice", **_: self._remove_sender(x, reason=reason)
                 )
                 self.peers[sid] = peer
-                if sid not in self._order: self._order.append(sid)
+                if sid not in self._order:
+                    self._order.append(sid)
                 GLib.idle_add(peer.prepare_window_handle)
                 peer.start()
                 GLib.idle_add(lambda p=peer: (p._ensure_transceivers(), p._maybe_create_offer()))
@@ -188,9 +265,33 @@ class MultiReceiverManager:
             peer = self.peers[sid]
             peer.resume_pipeline()  # PLAYING
             GLib.idle_add(self.ui.ensure_widget, sid, name or peer.sender_name)
+
+            # 🔹 첫 진입: 모드=1 만들고, 위젯을 선택된 셀로 옮긴다
+            if self.view_manager and self.view_manager.mode is None:
+                GLib.idle_add(lambda: self.view_manager.set_mode(1))
+
+                def _assign_into_cell():
+                    w = self.ui._widgets.get(sid)  # 또는 self.ui.get_widget(sid) 메서드가 있으면 사용
+                    if w and self.view_manager:
+                        try:
+                            w.setParent(None)  # 기존 부모 레이아웃에서 떼기
+                        except Exception:
+                            pass
+                        self.view_manager.assign_sender_to_selected(w)
+                    return False
+                GLib.idle_add(_assign_into_cell)
+
+                # 새 부모(winId)로 오버레이 재바인딩
+                from config import UI_OVERLAY_DELAY_MS
+                GLib.timeout_add(UI_OVERLAY_DELAY_MS,
+                                lambda p=peer: (p._force_overlay_handle() or False))
+
             if self.active_sender_id is None:
                 self._set_active_sender(sid)
+
             print(f"[SIO] sender-share-started: {peer.sender_name}")
+
+
 
         @self.sio.on('sender-share-stopped')
         def on_sender_share_stopped(data):
