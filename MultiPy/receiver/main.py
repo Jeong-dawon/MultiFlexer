@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # main.py
 # 메인 실행 파일
 
@@ -18,6 +19,7 @@ from PyQt5 import QtWidgets
 from ui_components import ReceiverWindow
 from receiver_manager import MultiReceiverManager
 from glib_qt_integration import integrate_glib_into_qt
+from view_mode_manager import ViewModeManager 
 
 # GStreamer 초기화
 Gst.init(None)
@@ -31,11 +33,17 @@ def main():
     ui = ReceiverWindow()
     ui.show()
     
+    ui.activateWindow()
+    ui.raise_()
+    ui.setFocus()
+    
     # GLib와 PyQt5 이벤트 루프 통합
     _glib_timer = integrate_glib_into_qt()
     
+    view_manager = ViewModeManager(ui)   
+
     # MultiReceiverManager 생성 및 시작
-    manager = MultiReceiverManager(ui)
+    manager = MultiReceiverManager(ui, view_manager)
     manager.start()
     
     # 종료 핸들러 정의 및 연결

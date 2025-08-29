@@ -59,6 +59,21 @@ class PeerReceiver:
         # GStreamer 파이프라인 초기화
         self._setup_pipeline()
 
+    def update_window_from_widget(self, w):
+        try:
+            if not w:  # 위젯이 None이면 skip
+                return
+            # 여기서 show()가 안 된 상태면 winId()가 dummy일 수 있음
+            if not w.isVisible():
+                w.show()
+
+            self._winid = int(w.winId())
+            print(f"[DEBUG] update_window_from_widget: {self.sender_id} winId=0x{self._winid:x}")
+            self._force_overlay_handle()
+        except Exception as e:
+            print(f"[UI][{self.sender_name}] update_window_from_widget failed:", e)
+
+    
     def _setup_pipeline(self):
         """GStreamer 파이프라인 초기화"""
         self.pipeline = Gst.Pipeline.new(f"webrtc-pipeline-{self.sender_id}")
