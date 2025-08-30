@@ -2,7 +2,7 @@
 
 # receiver_manager.py
 # 멀티 수신기 관리자 클래스
-
+import json
 import threading
 import ssl
 import socketio
@@ -184,6 +184,9 @@ class MultiReceiverManager:
                 # 자동 share 요청(기존 유지)
                 self.sio.emit('share-request', {'to': sid})
                 print(f"[SIO] share-request → {sid} ({name})")
+                
+                # 참여자 목록 변경 MQTT 알림
+                self._notify_mqtt_change()  
 
         # --- on_sender_share_started 만 교체 ---
         @self.sio.on('sender-share-started')
@@ -350,3 +353,60 @@ class MultiReceiverManager:
 
         # 남은 배정 기준으로 재생/정지 동기화
         self._sync_play_states()
+        
+        # 참여자 퇴장: 참여자 목록 변경 MQTT 알림
+        self._notify_mqtt_change()     
+
+# ---------- 상태 조회 메서드들 ----------
+    
+    def _notify_mqtt_change(self):
+       """참여자 변경시 MQTT 알림"""
+       if self.mqtt_publisher:
+           user_names = self.get_all_senders_name()
+           self.mqtt_publisher.publish("participant/update", json.dumps(user_names))
+
+    def get_all_senders_name(self):
+        """MQTT 응답용 사용자 이름 리스트"""
+        return [ self.peers[sid].sender_name 
+                for sid, peer in self.peers.items()] 
+
+    def get_all_senders(self):
+        """연결된 모든 sender들의 정보 반환
+        
+        Returns:
+            list: [{sender_id, sender_name, share_active}, ...] 형태의 리스트
+                  모든 연결된 sender들 포함 (공유 중지된 것도 포함)
+        
+        Example:
+             [
+                {id: 'abc123def456', name: 'Desktop-Computer', active: True}, 
+                {id: '789xyz321', name: 'Laptop-User', active: True},
+                {id: 'qwe456rty', name: 'Mobile-Phone', active: False}
+            ]
+
+        """
+        return [{"id": sid, 
+                 "name": peer.sender_name,
+                 "active": peer.share_active
+                 } 
+                for sid, peer in self.peers.items()] 
+        
+    # 추후, sender들의 화면 공유 상태에 따라 공유 활성화된 사용자 리스트가 필요할 때를 대비한 함수.  
+    def get_active_senders(self):
+        """현재 화면 공유 중인 sender들의 정보 반환
+        
+        Returns:
+            list: [{sender_id, sender_name}, ...] 형태의 리스트
+                  공유 중인 sender들만 포함 (share_active=True)
+        
+        Example:
+            [
+                {id: 'abc123def456', name: 'Desktop-Computer'}, 
+                {id: '789xyz321', name: 'Laptop-User'}
+            ]
+        """
+        
+        return [{"id": sid, 
+                 "name":self.peers[sid].sender_name} 
+                for sid in self._active_sender_ids()
+                ]

@@ -1,7 +1,7 @@
 // config.json에서 API 키를 불러오는 함수
 async function loadConfig() {
     try {
-        const response = await fetch('../../config.json');
+        const response = await fetch('/static/config.json');
         if (!response.ok) {
             throw new Error('config.json 파일을 불러올 수 없습니다.');
         }
@@ -39,27 +39,27 @@ function initializeMQTT() {
     try {
         // Paho MQTT 클라이언트 생성 (WebSocket 사용)
         mqttClient = new Paho.MQTT.Client("localhost", 9001, "clientId_" + parseInt(Math.random() * 100, 10));
-        
-        mqttClient.onConnectionLost = function(responseObject) {
+
+        mqttClient.onConnectionLost = function (responseObject) {
             if (responseObject.errorCode !== 0) {
                 console.log("MQTT 연결 끊어짐: " + responseObject.errorMessage);
             }
         };
 
-        mqttClient.onMessageArrived = function(message) {
+        mqttClient.onMessageArrived = function (message) {
             console.log("수신된 메시지: " + message.payloadString);
         };
 
         // MQTT 브로커에 연결
         mqttClient.connect({
-            onSuccess: function() {
+            onSuccess: function () {
                 console.log("MQTT 브로커에 연결되었습니다.");
             },
-            onFailure: function(error) {
+            onFailure: function (error) {
                 console.error("MQTT 연결 실패:", error);
             }
         });
-        
+
     } catch (error) {
         console.error('MQTT 초기화 오류:', error);
     }
@@ -72,10 +72,10 @@ async function setupMicrophone() {
     try {
         // 오디오 스트림 가져오기
         audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
+
         console.log('마이크 설정 완료');
         return true;
-        
+
     } catch (error) {
         console.error('마이크에 접근할 수 없습니다:', error);
         throw new Error('마이크 접근 권한이 필요합니다.');
@@ -93,7 +93,7 @@ function startRecording() {
 
     try {
         mediaRecorder = new MediaRecorder(audioStream);
-        
+
         mediaRecorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
                 audioChunks.push(event.data);
@@ -131,14 +131,14 @@ function startRecording() {
  */
 async function sendAudioToGoogleSTT(audioBlob) {
     const url = `https://speech.googleapis.com/v1/speech:recognize?key=${GOOGLE_CLOUD_API_KEY}`;
-    
+
     console.log('Audio blob size:', audioBlob.size);
     console.log('Audio blob type:', audioBlob.type);
-    
+
     try {
         const reader = new FileReader();
         reader.readAsArrayBuffer(audioBlob);
-        
+
         reader.onloadend = async function () {
             const arrayBuffer = reader.result;
             const base64Audio = btoa(
@@ -164,19 +164,19 @@ async function sendAudioToGoogleSTT(audioBlob) {
                     },
                 }),
             });
-            
+
             const result = await response.json();
             console.log('API Response:', result);
-            
+
             if (result.error) {
                 console.error('API Error:', result.error);
                 return;
             }
-            
+
             if (result.results && result.results.length > 0) {
                 const transcript = result.results[0].alternatives[0].transcript;
                 console.log('STT 결과:', transcript);
-                
+
                 // 참여자 이름 찾기 및 MQTT 전송
                 findAndPublishName(transcript);
             } else {
@@ -195,17 +195,17 @@ async function sendAudioToGoogleSTT(audioBlob) {
 function findAndPublishName(text) {
     const nameRegex = new RegExp(PARTICIPANT_NAMES.join('|'), 'g');
     const foundNames = text.match(nameRegex);
-    
+
     if (foundNames) {
         // 중복 제거
         const uniqueNames = [...new Set(foundNames)];
-        
+
         uniqueNames.forEach(name => {
             console.log(`'${name}' 이름이 감지되었습니다.`);
-            
+
             // MQTT로 전송
             publishToMQTT(name);
-            
+
             // 관리자 페이지에 직접 알림 (MQTT가 없어도 작동)
             if (window.handleParticipantCalled) {
                 window.handleParticipantCalled(name);
@@ -222,15 +222,15 @@ function publishToMQTT(participantName) {
         // 중복 메시지 방지 (2초 내 같은 메시지는 전송하지 않음)
         const currentTime = Date.now();
         const lastTime = lastSentMessages[participantName] || 0;
-        
+
         if (currentTime - lastTime < 2000) {
             console.log(`중복 메시지 방지: ${participantName} (${currentTime - lastTime}ms 전에 전송됨)`);
             return;
         }
-        
+
         const message = new Paho.MQTT.Message(participantName);
         message.destinationName = MQTT_TOPIC;
-        
+
         mqttClient.send(message);
         lastSentMessages[participantName] = currentTime;
         console.log(`MQTT 메시지 전송: ${MQTT_TOPIC} -> ${participantName}`);
@@ -287,7 +287,7 @@ function cleanupStream() {
 function cleanup() {
     stopRecording();
     cleanupStream();
-    
+
     if (mqttClient && mqttClient.isConnected()) {
         mqttClient.disconnect();
         console.log('MQTT 연결이 해제되었습니다.');
@@ -302,21 +302,21 @@ async function initializeApp() {
         // 설정 파일에서 API 키 로드
         const config = await loadConfig();
         GOOGLE_CLOUD_API_KEY = config.GOOGLE_CLOUD_API_KEY;
-        
+
         if (!GOOGLE_CLOUD_API_KEY) {
             throw new Error('Google Cloud API 키가 설정되지 않았습니다.');
         }
-        
+
         console.log('설정 로드 완료');
-        
+
         // MQTT 초기화
         initializeMQTT();
-        
+
         // 마이크 설정 (자동 녹음 시작하지 않음)
         await setupMicrophone();
-        
+
         console.log('애플리케이션 초기화 완료 - 마이크 버튼을 클릭하여 녹음을 시작하세요.');
-        
+
     } catch (error) {
         console.error('애플리케이션 초기화 실패:', error);
         alert('마이크 권한이 필요합니다. 페이지를 새로고침하고 마이크 권한을 허용해주세요.');

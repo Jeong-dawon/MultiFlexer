@@ -20,6 +20,7 @@ from ui_components import ReceiverWindow
 from receiver_manager import MultiReceiverManager
 from glib_qt_integration import integrate_glib_into_qt
 from view_mode_manager import ViewModeManager 
+from mqtt_manager import MqttManager
 
 # GStreamer 초기화
 Gst.init(None)
@@ -45,6 +46,10 @@ def main():
     # MultiReceiverManager 생성 및 시작
     manager = MultiReceiverManager(ui, view_manager)
     manager.start()
+    
+    # Mqtt - MultiReceiverManager 양방향 연결
+    mqtt_manager = MqttManager(receiver_manager=manager, ip="localhost", port=1883)
+    manager.mqtt_publisher = mqtt_manager  # MQTT 클라이언트 설정
     
     # 종료 핸들러 정의 및 연결
     def _quit(*_):

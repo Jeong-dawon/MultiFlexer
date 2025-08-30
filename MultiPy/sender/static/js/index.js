@@ -2,7 +2,7 @@
 // WebRTC Sender (화면 공유 송신자) - 자동 시작 버전
 // ======================================
 
-const socket = io('https://192.168.0.53:3001');
+const socket = io('https://localhost:3001');
 
 let localStream = null;                   // 현재 송출 중인 화면 스트림
 const peerConnections = {};               // receiverId -> RTCPeerConnection
@@ -16,21 +16,21 @@ let shareAnnounced = false; // sender-share-started 전송 여부
 let statsInterval = null;   // 송신 통계 타이머
 
 // --- UI 요소 ---
-const enterBtn       = document.getElementById('enterBtn');
-const shareStartBtn  = document.getElementById('shareStart');
-const shareStopBtn   = document.getElementById('shareStop');
+const enterBtn = document.getElementById('enterBtn');
+const shareStartBtn = document.getElementById('shareStart');
+const shareStopBtn = document.getElementById('shareStop');
 const toggleThemeBtn = document.getElementById('toggleTheme');
-const refreshBtn     = document.getElementById('refreshSender');
-const fullscreenBtn  = document.getElementById('fullscreen');
-const settingsBtn    = document.getElementById('settings');
+const refreshBtn = document.getElementById('refreshSender');
+const fullscreenBtn = document.getElementById('fullscreen');
+const settingsBtn = document.getElementById('settings');
 
-const startCard      = document.getElementById('startCard');
-const mainHeader     = document.getElementById('mainHeader');
-const mainContainer  = document.getElementById('mainContainer');
-const roomDisplay    = document.getElementById('roomDisplay');
-const myNameEl       = document.getElementById('myName');
+const startCard = document.getElementById('startCard');
+const mainHeader = document.getElementById('mainHeader');
+const mainContainer = document.getElementById('mainContainer');
+const roomDisplay = document.getElementById('roomDisplay');
+const myNameEl = document.getElementById('myName');
 const receiverListEl = document.getElementById('receiverList');
-const localPreview   = document.getElementById('localPreview');
+const localPreview = document.getElementById('localPreview');
 
 // ---------- 수신자 목록 렌더링 ----------
 
@@ -94,9 +94,9 @@ function getPc(id) {
   };
 
   pc.oniceconnectionstatechange = () => console.log(`[SENDER] ICE (${id}):`, pc.iceConnectionState);
-  pc.onconnectionstatechange   = () => console.log(`[SENDER] PC state (${id}):`, pc.connectionState);
-  pc.onsignalingstatechange    = () => console.log(`[SENDER] signaling (${id}):`, pc.signalingState);
-  pc.onicecandidateerror       = (e) => console.warn('[SENDER] onicecandidateerror:', e);
+  pc.onconnectionstatechange = () => console.log(`[SENDER] PC state (${id}):`, pc.connectionState);
+  pc.onsignalingstatechange = () => console.log(`[SENDER] signaling (${id}):`, pc.signalingState);
+  pc.onicecandidateerror = (e) => console.warn('[SENDER] onicecandidateerror:', e);
   return pc;
 }
 
@@ -120,7 +120,7 @@ async function logSenderStats(pc) {
       const prev = lastStats[report.id];
       if (prev) {
         const bytes = report.bytesSent - prev.bytesSent;
-        const time  = (report.timestamp - prev.timestamp) / 1000;
+        const time = (report.timestamp - prev.timestamp) / 1000;
         const bitrate = (bytes * 8 / 1000) / time;
         console.log(`[STATS][TX] bitrate≈${bitrate.toFixed(1)} kbps, FPS=${report.framesPerSecond || 'N/A'}`);
       }
@@ -151,7 +151,7 @@ async function startLocalCaptureAndPreview() {
   try {
     localStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        width:  { max: 1920 },
+        width: { max: 1920 },
         height: { max: 1080 },
         frameRate: { max: 60, ideal: 30 }
       },
@@ -171,8 +171,8 @@ async function startLocalCaptureAndPreview() {
 
     // UI: 시작 버튼 숨김, 중지 버튼 표시
     shareStartBtn.style.display = 'none';
-    shareStopBtn.style.display  = 'inline-block';
-    shareStopBtn.disabled       = false;
+    shareStopBtn.style.display = 'inline-block';
+    shareStopBtn.disabled = false;
 
     ensureStatsTimer();
     return true;
@@ -220,8 +220,10 @@ async function announceShareAndProcessOffers() {
 
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      socket.emit('signal', { to: rid, from: socket.id, type: 'answer',
-        payload: { type: 'answer', sdp: answer.sdp } });
+      socket.emit('signal', {
+        to: rid, from: socket.id, type: 'answer',
+        payload: { type: 'answer', sdp: answer.sdp }
+      });
       console.log('[SENDER] answer 전송 →', rid);
 
       delete pendingOffers[rid];
@@ -233,7 +235,7 @@ async function announceShareAndProcessOffers() {
 
 // ---------- Join Flow (입장) ----------
 shareStartBtn.style.display = 'none';  // 시작 버튼은 기본 숨김
-shareStopBtn.style.display  = 'none';
+shareStopBtn.style.display = 'none';
 
 enterBtn.addEventListener('click', async () => {
   const name = document.getElementById('senderName').value.trim();
@@ -255,16 +257,16 @@ enterBtn.addEventListener('click', async () => {
 
   const onSuccess = async ({ room, name: confirmedName }) => {
     if (handled) return; handled = true;
-    senderName  = confirmedName || name;
-    myNameEl.innerText    = senderName;
+    senderName = confirmedName || name;
+    myNameEl.innerText = senderName;
 
-    startCard.style.display   = 'none';
-    mainHeader.style.display  = 'flex';
+    startCard.style.display = 'none';
+    mainHeader.style.display = 'flex';
     mainContainer.style.display = 'block';
 
     cleanUp();
 
-    // ✅ 방 입장 성공 후 공유 시작 알림 + 보류 offer 처리
+    // 방 입장 성공 후 공유 시작 알림 + 보류 offer 처리
     await announceShareAndProcessOffers();
   };
 
@@ -328,8 +330,10 @@ socket.on('signal', async (data) => {
 
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      socket.emit('signal', { to: from, from: socket.id, type: 'answer',
-        payload: { type: 'answer', sdp: answer.sdp } });
+      socket.emit('signal', {
+        to: from, from: socket.id, type: 'answer',
+        payload: { type: 'answer', sdp: answer.sdp }
+      });
       console.log('[SENDER] answer 전송 →', from);
 
       delete pendingOffers[from];
@@ -412,9 +416,17 @@ shareStopBtn.addEventListener('click', () => {
 toggleThemeBtn?.addEventListener('click', () => document.body.classList.toggle('dark-mode'));
 refreshBtn?.addEventListener('click', () => location.reload());
 fullscreenBtn?.addEventListener('click', () => {
-  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => { });
   else document.exitFullscreen();
 });
 document.getElementById('theme')?.addEventListener('click', () => {
   document.body.classList.toggle('dark-mode');
 });
+
+//------------
+// 현재 참여중인지를 판별
+function isUserJoined() {
+  return senderName !== '' &&
+    socket.connected &&
+    startCard.style.display === 'none';
+}

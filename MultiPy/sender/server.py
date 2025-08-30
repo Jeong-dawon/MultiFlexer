@@ -17,8 +17,16 @@ receiver_process = None
 is_windows = platform.system().lower().startswith("win")
 
 @app.route('/')
-def home():
-    return render_template('index.html') # 기본 라우트: sender UI 반환
+def main():
+	return render_template('enter.html')
+
+@app.route('/manage')
+def manage():
+	return render_template('administrator.html')
+
+@app.route('/share')
+def share():
+	return render_template('index.html')
 
 def start_node(): # Node.js 시그널링 서버 실행
     global node_process

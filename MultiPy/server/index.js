@@ -10,7 +10,7 @@ const app = express();
 
 // 인증서 파일 경로
 const certPath = path.join(__dirname, '../sender/cert.pem');
-const keyPath  = path.join(__dirname, '../sender/key.pem');
+const keyPath = path.join(__dirname, '../sender/key.pem');
 const options = {
   key: fs.readFileSync(keyPath),
   cert: fs.readFileSync(certPath),
@@ -41,7 +41,7 @@ io.on('connection', (socket) => {
   socket.on('share-started', ({ name }) => {
     if (!receiver) return;
     const senderInfo = senders[socket.id];
-    const displayName = senderInfo?.name || name || `Sender-${socket.id.slice(0,5)}`;
+    const displayName = senderInfo?.name || name || `Sender-${socket.id.slice(0, 5)}`;
     io.to(receiver).emit('sender-share-started', { id: socket.id, name: displayName });
     emitSenderList();
   });
@@ -65,6 +65,8 @@ io.on('connection', (socket) => {
 
   // --- join-room ---
   socket.on('join-room', ({ role, name }, cb) => {
+    console.log(`[JOIN-ROOM] role: ${role}, name: ${name}`);
+
     if (role === 'receiver') {
       receiver = socket.id;
       emitSenderList();
@@ -90,7 +92,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const assignedName = name || `Sender-${socket.id.slice(0,5)}`;
+    const assignedName = name || `Sender-${socket.id.slice(0, 5)}`;
     senders[socket.id] = { id: socket.id, name: assignedName };
 
     emitSenderList();

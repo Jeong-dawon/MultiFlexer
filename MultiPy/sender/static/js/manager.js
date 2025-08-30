@@ -1,0 +1,102 @@
+let client = null;                // MQTT 클라이언트 객체
+let connectionFlag = false;       // 연결 상태
+const CLIENT_ID = "client-" + Math.floor((1 + Math.random()) * 0x10000000000).toString(16); // 랜덤 클라이언트 ID
+
+// HTML이 완전히 로드된 후 실행
+document.addEventListener('DOMContentLoaded', function () {
+	console.log("[DEBUG] DOM 로드 완료 - MQTT 연결 시작");
+	connect();
+});
+
+function connect() {
+	if (connectionFlag) return;
+
+	const broker = "localhost"; // 웹소켓 브로커 URL
+	const port = 9001;               // 웹소켓 포트
+
+	console.log(`[DEBUG] 브로커 연결 시도: ${broker}:${port} | 클라이언트ID: ${CLIENT_ID}`);
+
+	client = new Paho.MQTT.Client(broker, Number(port), CLIENT_ID);
+
+	client.onConnectionLost = onConnectionLost;
+	client.onMessageArrived = onMessageArrived;
+
+	client.connect({
+		onSuccess: onConnect,
+		onFailure: (err) => console.error("[ERROR] 브로커 연결 실패:", err)
+	});
+}
+
+function onConnect() {
+	connectionFlag = true;
+	console.log("[DEBUG] 브로커 연결 성공");
+
+	// 브로커에 구독 신청
+	subscribe("participant/response"); // (요청시) Reciver로부터 참여자 목록 받아옴
+	subscribe("screen/response"); // (요청시) Reciver로부터 화면 공유 정보 받아옴
+	subscribe("participant/update"); // (참여자 목록이 변할 때마다) Reciver로부터 참여자 목록 받아옴
+
+	publish("participant/request", "") // Reciver에게 참여자 목록 요청
+	publish("screen/request", "") // Reciver에게 화면 공유 정보 요청
+}
+
+function subscribe(topic) {
+	if (!connectionFlag) {
+		alert("연결되지 않았음");
+		return false;
+	}
+
+	client.subscribe(topic);
+	console.log(`[DEBUG] 구독 신청: ${topic}`);
+	return true;
+}
+
+function publish(topic, msg) {
+
+	if (!connectionFlag) {
+		alert("연결되지 않았음");
+		return false;
+	}
+
+	client.send(topic, msg, 0, false);
+
+	console.log(`[DEBUG] 메시지 전송: 토픽=${topic}, 내용=${msg}`);
+	return true;
+}
+
+function unsubscribe(topic) {
+	if (!connectionFlag) return;
+
+	client.unsubscribe(topic);
+	console.log(`[DEBUG] 구독 취소: ${topic}`);
+}
+
+function onConnectionLost(responseObject) {
+	connectionFlag = false;
+	console.warn("[WARN] 연결 끊김", responseObject);
+}
+
+function onMessageArrived(msg) {
+	console.log(`[DEBUG] 메시지 도착: 토픽=${msg.destinationName}, 내용=${msg.payloadString}`);
+
+	if (msg.destinationName == "participant/response" || msg.destinationName == "participant/update") {
+		try {
+			// JSON 문자열을 JavaScript 배열로 변환
+			const userList = JSON.parse(msg.payloadString);
+			console.log("[DEBUG] 사용자 목록:", userList);
+
+			// 사용자 목록 UI 업데이트 코드 삽입
+
+		} catch (error) {
+			console.error("[ERROR] JSON 파싱 실패:", error);
+		}
+	}
+}
+
+function disconnect() {
+	if (!connectionFlag) return;
+
+	client.disconnect();
+	connectionFlag = false;
+	console.log("[DEBUG] 브로커 연결 종료");
+}
