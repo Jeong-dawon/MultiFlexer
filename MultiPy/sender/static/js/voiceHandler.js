@@ -19,17 +19,14 @@ const MQTT_TOPIC = 'admin/called';
 // 감지할 참여자 이름 배열
 const PARTICIPANT_NAMES = ["아린", "단비", "은비", "다원", "유진"];
 
-// 음성 인식 주기 (밀리초 단위)
-const STT_INTERVAL = 5000; // 5초
-
 // --- 전역 변수 ---
 let mediaRecorder;
 let audioChunks = [];
-let intervalId = null;
 let mqttClient = null;
 let GOOGLE_CLOUD_API_KEY = null;
 let audioStream = null;
 let isRecording = false;
+let isPushed = false; // 버튼이 눌려있는 상태
 let lastSentMessages = {}; // 중복 메시지 방지용
 
 /**
@@ -39,27 +36,27 @@ function initializeMQTT() {
     try {
         // Paho MQTT 클라이언트 생성 (WebSocket 사용)
         mqttClient = new Paho.MQTT.Client("localhost", 9001, "clientId_" + parseInt(Math.random() * 100, 10));
-
-        mqttClient.onConnectionLost = function (responseObject) {
+        
+        mqttClient.onConnectionLost = function(responseObject) {
             if (responseObject.errorCode !== 0) {
                 console.log("MQTT 연결 끊어짐: " + responseObject.errorMessage);
             }
         };
 
-        mqttClient.onMessageArrived = function (message) {
+        mqttClient.onMessageArrived = function(message) {
             console.log("수신된 메시지: " + message.payloadString);
         };
 
         // MQTT 브로커에 연결
         mqttClient.connect({
-            onSuccess: function () {
+            onSuccess: function() {
                 console.log("MQTT 브로커에 연결되었습니다.");
             },
-            onFailure: function (error) {
+            onFailure: function(error) {
                 console.error("MQTT 연결 실패:", error);
             }
         });
-
+        
     } catch (error) {
         console.error('MQTT 초기화 오류:', error);
     }
@@ -72,10 +69,10 @@ async function setupMicrophone() {
     try {
         // 오디오 스트림 가져오기
         audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
+        
         console.log('마이크 설정 완료');
         return true;
-
+        
     } catch (error) {
         console.error('마이크에 접근할 수 없습니다:', error);
         throw new Error('마이크 접근 권한이 필요합니다.');
@@ -83,17 +80,23 @@ async function setupMicrophone() {
 }
 
 /**
- * 녹음을 시작하고 주기적으로 STT를 실행하는 함수
+ * 녹음을 시작하는 함수
  */
 function startRecording() {
     if (!audioStream) {
         console.error('오디오 스트림이 없습니다. 먼저 마이크를 설정해주세요.');
-        return;
+        return false;
+    }
+
+    if (isRecording) {
+        return true; // 이미 녹음 중
     }
 
     try {
+        audioChunks = []; // 새로운 녹음을 위해 초기화
+        
         mediaRecorder = new MediaRecorder(audioStream);
-
+        
         mediaRecorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
                 audioChunks.push(event.data);
@@ -105,24 +108,70 @@ function startRecording() {
             if (audioChunks.length > 0) {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                 await sendAudioToGoogleSTT(audioBlob);
-                audioChunks = []; // 새로운 녹음을 위해 비워줌
             }
         };
 
         mediaRecorder.start(); // 녹음 시작
         isRecording = true;
-
-        // 5초마다 녹음 중지 후 변환, 그리고 다시 녹음 시작
-        intervalId = setInterval(() => {
-            if (mediaRecorder && mediaRecorder.state === "recording") {
-                mediaRecorder.stop(); // STT 변환을 위해 중지
-                mediaRecorder.start(); // 중지 후 다시 녹음 시작
-            }
-        }, STT_INTERVAL);
-
         console.log('녹음이 시작되었습니다.');
+        return true;
+        
     } catch (err) {
         console.error('음성 녹음 중 오류 발생:', err);
+        return false;
+    }
+}
+
+/**
+ * 녹음 중지 함수 - 즉시 STT로 전송
+ */
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop(); // 녹음 중지 및 STT 처리
+        isRecording = false;
+        console.log('녹음이 중지되었습니다. STT 처리 중...');
+        return true;
+    }
+    return false;
+}
+
+/**
+ * 버튼 누르기 시작 - 녹음 시작
+ */
+function startPushToTalk() {
+    if (isPushed) return; // 이미 눌려있음
+    
+    isPushed = true;
+    const success = startRecording();
+    
+    if (success) {
+        // 버튼 시각적 피드백
+        const micBtn = document.querySelector('.mic-btn');
+        if (micBtn) {
+            micBtn.classList.add('recording');
+            micBtn.style.backgroundColor = '#ff4444';
+            micBtn.title = '녹음 중... 버튼을 떼면 전송됩니다';
+        }
+    }
+    
+    return success;
+}
+
+/**
+ * 버튼 떼기 - 녹음 중지 및 STT 전송
+ */
+function stopPushToTalk() {
+    if (!isPushed) return; // 눌려있지 않음
+    
+    isPushed = false;
+    stopRecording();
+    
+    // 버튼 시각적 피드백 복원
+    const micBtn = document.querySelector('.mic-btn');
+    if (micBtn) {
+        micBtn.classList.remove('recording');
+        micBtn.style.backgroundColor = '';
+        micBtn.title = '누르고 있으면 녹음됩니다';
     }
 }
 
@@ -131,14 +180,14 @@ function startRecording() {
  */
 async function sendAudioToGoogleSTT(audioBlob) {
     const url = `https://speech.googleapis.com/v1/speech:recognize?key=${GOOGLE_CLOUD_API_KEY}`;
-
+    
     console.log('Audio blob size:', audioBlob.size);
     console.log('Audio blob type:', audioBlob.type);
-
+    
     try {
         const reader = new FileReader();
         reader.readAsArrayBuffer(audioBlob);
-
+        
         reader.onloadend = async function () {
             const arrayBuffer = reader.result;
             const base64Audio = btoa(
@@ -164,19 +213,19 @@ async function sendAudioToGoogleSTT(audioBlob) {
                     },
                 }),
             });
-
+            
             const result = await response.json();
             console.log('API Response:', result);
-
+            
             if (result.error) {
                 console.error('API Error:', result.error);
                 return;
             }
-
+            
             if (result.results && result.results.length > 0) {
                 const transcript = result.results[0].alternatives[0].transcript;
                 console.log('STT 결과:', transcript);
-
+                
                 // 참여자 이름 찾기 및 MQTT 전송
                 findAndPublishName(transcript);
             } else {
@@ -195,17 +244,17 @@ async function sendAudioToGoogleSTT(audioBlob) {
 function findAndPublishName(text) {
     const nameRegex = new RegExp(PARTICIPANT_NAMES.join('|'), 'g');
     const foundNames = text.match(nameRegex);
-
+    
     if (foundNames) {
         // 중복 제거
         const uniqueNames = [...new Set(foundNames)];
-
+        
         uniqueNames.forEach(name => {
             console.log(`'${name}' 이름이 감지되었습니다.`);
-
+            
             // MQTT로 전송
             publishToMQTT(name);
-
+            
             // 관리자 페이지에 직접 알림 (MQTT가 없어도 작동)
             if (window.handleParticipantCalled) {
                 window.handleParticipantCalled(name);
@@ -222,51 +271,20 @@ function publishToMQTT(participantName) {
         // 중복 메시지 방지 (2초 내 같은 메시지는 전송하지 않음)
         const currentTime = Date.now();
         const lastTime = lastSentMessages[participantName] || 0;
-
+        
         if (currentTime - lastTime < 2000) {
             console.log(`중복 메시지 방지: ${participantName} (${currentTime - lastTime}ms 전에 전송됨)`);
             return;
         }
-
+        
         const message = new Paho.MQTT.Message(participantName);
         message.destinationName = MQTT_TOPIC;
-
+        
         mqttClient.send(message);
         lastSentMessages[participantName] = currentTime;
         console.log(`MQTT 메시지 전송: ${MQTT_TOPIC} -> ${participantName}`);
     } else {
         console.error('MQTT 클라이언트가 연결되지 않았습니다.');
-    }
-}
-
-/**
- * 녹음 중지 함수
- */
-function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-        mediaRecorder.stop(); // 마지막으로 변환 처리
-        clearInterval(intervalId); // 주기 처리 중단
-        intervalId = null;
-        isRecording = false;
-        console.log('녹음이 중지되었습니다.');
-    }
-}
-
-/**
- * 마이크 토글 함수 - 마이크 버튼에서 호출됨
- */
-function toggleMicrophone() {
-    if (isRecording) {
-        stopRecording();
-        return false; // 녹음 중지됨
-    } else {
-        if (audioStream) {
-            startRecording();
-            return true; // 녹음 시작됨
-        } else {
-            console.error('마이크가 설정되지 않았습니다.');
-            return false;
-        }
     }
 }
 
@@ -285,13 +303,72 @@ function cleanupStream() {
  * 전체 정리 함수
  */
 function cleanup() {
-    stopRecording();
+    if (isRecording) {
+        stopRecording();
+    }
     cleanupStream();
-
+    
     if (mqttClient && mqttClient.isConnected()) {
         mqttClient.disconnect();
         console.log('MQTT 연결이 해제되었습니다.');
     }
+}
+
+/**
+ * 마이크 버튼 이벤트 리스너 설정
+ */
+function setupMicrophoneButton() {
+    const micBtn = document.querySelector('.mic-btn');
+    if (!micBtn) {
+        console.error('마이크 버튼을 찾을 수 없습니다.');
+        return;
+    }
+
+    // 마우스 이벤트
+    micBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startPushToTalk();
+    });
+
+    micBtn.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        stopPushToTalk();
+    });
+
+    micBtn.addEventListener('mouseleave', (e) => {
+        e.preventDefault();
+        if (isPushed) {
+            stopPushToTalk();
+        }
+    });
+
+    // 터치 이벤트 (모바일 지원)
+    micBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startPushToTalk();
+    });
+
+    micBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stopPushToTalk();
+    });
+
+    // 키보드 이벤트 (스페이스바로도 사용 가능)
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !isPushed) {
+            e.preventDefault();
+            startPushToTalk();
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.code === 'Space' && isPushed) {
+            e.preventDefault();
+            stopPushToTalk();
+        }
+    });
+
+    console.log('마이크 버튼 이벤트 리스너가 설정되었습니다.');
 }
 
 /**
@@ -302,21 +379,24 @@ async function initializeApp() {
         // 설정 파일에서 API 키 로드
         const config = await loadConfig();
         GOOGLE_CLOUD_API_KEY = config.GOOGLE_CLOUD_API_KEY;
-
+        
         if (!GOOGLE_CLOUD_API_KEY) {
             throw new Error('Google Cloud API 키가 설정되지 않았습니다.');
         }
-
+        
         console.log('설정 로드 완료');
-
+        
         // MQTT 초기화
         initializeMQTT();
-
-        // 마이크 설정 (자동 녹음 시작하지 않음)
+        
+        // 마이크 설정
         await setupMicrophone();
-
-        console.log('애플리케이션 초기화 완료 - 마이크 버튼을 클릭하여 녹음을 시작하세요.');
-
+        
+        // 마이크 버튼 이벤트 리스너 설정
+        setupMicrophoneButton();
+        
+        console.log('애플리케이션 초기화 완료 - 마이크 버튼을 누르고 있으면 녹음됩니다.');
+        
     } catch (error) {
         console.error('애플리케이션 초기화 실패:', error);
         alert('마이크 권한이 필요합니다. 페이지를 새로고침하고 마이크 권한을 허용해주세요.');
@@ -329,8 +409,8 @@ window.addEventListener('load', initializeApp);
 // 페이지를 떠날 때 정리 작업
 window.addEventListener('beforeunload', cleanup);
 
-// 외부에서 사용할 수 있는 함수들
-window.toggleMicrophone = toggleMicrophone;
+// 외부에서 사용할 수 있는 함수들 (호환성을 위해 유지)
+window.toggleMicrophone = () => isPushed; // 현재 상태 반환
 window.startRecording = startRecording;
 window.stopRecording = stopRecording;
 window.isRecording = () => isRecording;
