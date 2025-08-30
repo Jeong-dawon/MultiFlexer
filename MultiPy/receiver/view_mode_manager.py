@@ -37,14 +37,15 @@ class ViewModeManager(QtCore.QObject):
         self._senders_provider = provider_fn
 
     def _setup_shortcuts(self):
+        # ✅ 메인 윈도우(self.ui)를 부모로 해야 전역 단축키처럼 동작
         for num in (1, 2, 3, 4):
-            sc = QtWidgets.QShortcut(QtGui.QKeySequence(str(num)), self.ui.centralWidget())
+            sc = QtWidgets.QShortcut(QtGui.QKeySequence(str(num)), self.ui)
             sc.setContext(QtCore.Qt.ApplicationShortcut)
             sc.activated.connect(lambda n=num: self.set_mode(n))
             self._shortcuts.append(sc)
 
         # 🔑 S 키: sender 선택 메뉴
-        sc_s = QtWidgets.QShortcut(QtGui.QKeySequence("S"), self.ui.centralWidget())
+        sc_s = QtWidgets.QShortcut(QtGui.QKeySequence("S"), self.ui)
         sc_s.setContext(QtCore.Qt.ApplicationShortcut)
         sc_s.activated.connect(self._open_sender_picker)
         self._shortcuts.append(sc_s)
@@ -65,18 +66,20 @@ class ViewModeManager(QtCore.QObject):
         print(f"[DEBUG] set_mode called: {mode}")
         self.mode = mode
 
+        # 전체 pause (지금 활성 재생을 잠깐 멈춤)
         self.requestPauseAll.emit()
 
+        # 기존 셀 정리
         for c in self.cells:
             try:
-                c.clear()         # 🔑 내부 위젯 제거 (Qt 쪽 parent 해제)
+                c.clear()
                 c.setParent(None)
                 c.deleteLater()
             except Exception:
                 pass
         self.cells.clear()
 
-        # 3) 새 셀 생성
+        # 새 셀 생성
         self.cells = [Cell() for _ in range(mode)]
         for idx, cell in enumerate(self.cells):
             cell.clicked.connect(lambda i=idx: self._set_focus(i))
@@ -85,7 +88,7 @@ class ViewModeManager(QtCore.QObject):
         self.ui.apply_layout(mode, self.cells)
         self._set_focus(0 if self.cells else -1)
 
-        # 전체 pause
+        # 다시 한 번 전체 pause (레이아웃 전환 직후 상태 수립)
         self.requestPauseAll.emit()
 
     def _set_focus(self, idx: int):
@@ -106,12 +109,26 @@ class ViewModeManager(QtCore.QObject):
         menu = QtWidgets.QMenu(self.ui)
         for sid, name in entries:
             act = QtWidgets.QAction(f"{name}  ({sid[:8]})", menu)
-            act.triggered.connect(lambda _, s=sid: self._assign_to_focus(s))
+
+            def on_pick(checked=False, s=sid):
+                if not self.cells:
+                    self.set_mode(1)
+                # 레이아웃 적용 한 틱 뒤 배정
+                QtCore.QTimer.singleShot(0, lambda: self._assign_to_focus(s))
+                # ✅ 메뉴 닫힌 뒤 포커스 복구 (단축키 계속 먹게)
+                QtCore.QTimer.singleShot(0, lambda: (
+                    self.ui.activateWindow(),
+                    self.ui.raise_(),
+                    self.ui.setFocus()
+                ))
+            act.triggered.connect(on_pick)
             menu.addAction(act)
 
-        pos = QtGui.QCursor.pos()
-        menu.exec_(pos)
+        menu.exec_(QtGui.QCursor.pos())
 
     def _assign_to_focus(self, sender_id: str):
-        if 0 <= self.focus_index < len(self.cells):
-            self.requestAssign.emit(self.focus_index, sender_id)
+        if not self.cells:
+            # 혹시 모를 타이밍 이슈 보강
+            self.set_mode(1)
+        idx = self.focus_index if (0 <= self.focus_index < len(self.cells)) else 0
+        self.requestAssign.emit(idx, sender_id)

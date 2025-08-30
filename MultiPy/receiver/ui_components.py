@@ -84,7 +84,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         # stack 컨테이너
         self._stack_container = QtWidgets.QWidget()
         self._stack = QtWidgets.QStackedLayout(self._stack_container)
-        self._placeholder = QtWidgets.QLabel("Waiting for senders...", alignment=QtCore.Qt.AlignCenter)
+        self._placeholder = QtWidgets.QLabel("영상 수신할 sender 선택", alignment=QtCore.Qt.AlignCenter)
         self._placeholder.setStyleSheet("color:#888; font-size:18px;")
         self._stack.addWidget(self._placeholder)
 
@@ -100,9 +100,9 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         self._main.setCurrentIndex(0)  # 기본: 단일 모드
 
         # placeholder
-        self._placeholder = QtWidgets.QLabel("Waiting for senders...", alignment=QtCore.Qt.AlignCenter)
-        self._placeholder.setStyleSheet("color:#888; font-size:18px;")
-        self._stack.addWidget(self._placeholder)
+        #self._placeholder = QtWidgets.QLabel("Waiting for senders...", alignment=QtCore.Qt.AlignCenter)
+        #self._placeholder.setStyleSheet("color:#888; font-size:18px;")
+        #self._stack.addWidget(self._placeholder)
 
         self._info_popup = InfoPopup(self)
         self._info_popup.hide()
@@ -225,3 +225,5 @@ class ReceiverWindow(QtWidgets.QMainWindow):
 
     def hide_sender_info_popup(self):
         self._info_popup.hide()
+
+    
