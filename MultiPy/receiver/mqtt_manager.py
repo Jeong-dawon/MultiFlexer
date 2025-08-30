@@ -41,6 +41,7 @@ class MqttManager:
     def _on_connect(slef, client, userdata, flag, rc, prop=None):
         client.subscribe("participant/request") # "participant/request" 토픽으로 구독, 참여자 목록 요청 
         client.subscribe("screen/request") # "screen/request" 토픽으로 구독, 화면 상태 요청
+        client.subscribe("screen/update") # "screen/update" 토픽으로 구독, 관리자의 화면 배치 정보 수신
 
     def _on_message(self, client, userdata, msg):
         print(f"Topic: {msg.topic}")        # 토픽 확인
