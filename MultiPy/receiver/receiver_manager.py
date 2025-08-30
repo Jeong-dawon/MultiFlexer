@@ -1,5 +1,3 @@
-# sender 입장하면 playing
-
 # receiver_manager.py
 # 멀티 수신기 관리자 클래스
 import json
@@ -56,7 +54,6 @@ class MultiReceiverManager:
 
     # ----- 상태 쿼리 -----
     def _active_sender_ids(self):
-        """현재 '공유 중'인 sender들만"""
         return [sid for sid, p in self.peers.items() if p.share_active]
 
     def list_active_senders(self):
@@ -64,28 +61,11 @@ class MultiReceiverManager:
 
     # ----- 모드 전환/셀 배정 보조 -----
     def pause_all_streams(self):
-        """모드 전환 시 전체 정지(준비상태)"""
-        for p in self.peers.values():
-            try:
-                p.pause_pipeline()
-            except Exception:
-                pass
+        """(더 이상 사용하지 않음)"""
         self._cell_assign.clear()
 
-    def _sync_play_states(self):
-        """셀에 배정된 sender는 PLAYING, 그 외는 PAUSED"""
-        assigned = set(self._cell_assign.values())
-        for sid, p in self.peers.items():
-            try:
-                if sid in assigned:
-                    p.resume_pipeline()
-                else:
-                    p.pause_pipeline()
-            except Exception:
-                pass
-
     def assign_sender_to_cell(self, cell_index: int, sender_id: str):
-        """특정 셀에 sender 배정. 배정된 모든 sender는 PLAYING 유지."""
+        """특정 셀에 sender 배정"""
         if sender_id not in self.peers or not (0 <= cell_index):
             return
         target = self.peers[sender_id]
@@ -122,17 +102,15 @@ class MultiReceiverManager:
 
                 from config import UI_OVERLAY_DELAY_MS
                 def _rebind():
-                    target.resume_pipeline()       # 배정된 것은 재생
+                    target.resume_pipeline()       # 항상 재생
                     target._force_overlay_handle()
-                    self._sync_play_states()       # 전체 동기화
                     return False
                 GLib.timeout_add(UI_OVERLAY_DELAY_MS, _rebind)
             return False
         GLib.idle_add(_ensure_and_put)
 
-        # 매핑 갱신 + 전체 동기화
+        # 매핑 갱신
         self._cell_assign[cell_index] = sender_id
-        self._sync_play_states()
 
     # ----- 소켓 연결 -----
     def _sio_connect(self):
@@ -152,7 +130,6 @@ class MultiReceiverManager:
 
         @self.sio.on('sender-list')
         def on_sender_list(sender_arr):
-            # 초기 입장 시 sender 목록. 각 sender에 PeerReceiver 세팅.
             print("[SIO] sender-list:", sender_arr)
             if not sender_arr:
                 return
@@ -169,7 +146,7 @@ class MultiReceiverManager:
 
                 peer = PeerReceiver(
                     self.sio, sid, name, self.ui,
-                    on_ready=None,     # 전환 측정/로그 제거
+                    on_ready=None,
                     on_down=lambda x, reason="ice", **_: self._remove_sender(x, reason=reason)
                 )
                 self.peers[sid] = peer
@@ -181,14 +158,11 @@ class MultiReceiverManager:
                 peer.start()
                 GLib.idle_add(lambda p=peer: (p._ensure_transceivers(), p._maybe_create_offer()))
 
-                # 자동 share 요청(기존 유지)
                 self.sio.emit('share-request', {'to': sid})
                 print(f"[SIO] share-request → {sid} ({name})")
                 
-                # 참여자 목록 변경 MQTT 알림
                 self._notify_mqtt_change()  
 
-        # --- on_sender_share_started 만 교체 ---
         @self.sio.on('sender-share-started')
         def on_sender_share_started(data):
             sid  = data.get('id') or data.get('senderId') or data.get('from')
@@ -196,7 +170,6 @@ class MultiReceiverManager:
             if not sid:
                 return
 
-            # 1) peer 없으면 생성
             if sid not in self.peers:
                 _qt(lambda: self.ui.ensure_widget(sid, name or sid))
                 peer = PeerReceiver(
@@ -207,48 +180,37 @@ class MultiReceiverManager:
                 self.peers[sid] = peer
                 if sid not in self._order:
                     self._order.append(sid)
-                _qt(peer.prepare_window_handle)  # Qt 스레드에서 핸들 준비
+                _qt(peer.prepare_window_handle)
                 peer.start()
                 _qt(lambda p=peer: (p._ensure_transceivers(), p._maybe_create_offer()))
 
             peer = self.peers[sid]
 
             if not self._cell_assign:
-                # (A) 스택에 즉시 표시 + 오버레이 바인딩 + 재생 — 모두 Qt 스레드
                 def _show_now():
                     w = self.ui.ensure_widget(sid, name or peer.sender_name)
                     if w and not w.isVisible():
                         w.show()
                     self.ui.set_active_sender_name(sid, name or peer.sender_name)
-                    peer.update_window_from_widget(w)   # winId 확보 + 최초 바인딩
-                    peer.resume_pipeline()              # PLAYING
+                    peer.update_window_from_widget(w)
+                    peer.resume_pipeline()  # 항상 PLAYING
                 _qt(_show_now)
 
-                # (B) 아주 짧은 지연 후 1분할 전환 → cells 준비되면 셀0에 배정
                 def _enter_single_mode_and_assign():
                     if self.view_manager and self.view_manager.mode != 1:
-                        self.view_manager.set_mode(1)   # 내부에서 pause_all 발생
-                    # cells 생성 완료까지 폴링 (Qt 타이머로)
+                        self.view_manager.set_mode(1)
                     def _try_assign():
                         if not self.view_manager or not self.view_manager.cells:
                             QtCore.QTimer.singleShot(0, _try_assign)
                             return
-                        self.assign_sender_to_cell(0, sid)  # 내부에서 resume + overlay 재바인딩 + sync
+                        self.assign_sender_to_cell(0, sid)
                     QtCore.QTimer.singleShot(0, _try_assign)
 
-                QtCore.QTimer.singleShot(50, _enter_single_mode_and_assign)  # 스택 표시 직후 약간 뒤
+                QtCore.QTimer.singleShot(50, _enter_single_mode_and_assign)
             else:
-                # 두 번째 이후는 입장 즉시 대기(PAUSED)
-                peer.pause_pipeline()
+                peer.resume_pipeline()  # 항상 재생
 
             print(f"[SIO] sender-share-started: {peer.sender_name}")
-
-
-
-
-
-
-
 
         @self.sio.on('sender-share-stopped')
         def on_sender_share_stopped(data):
@@ -259,9 +221,8 @@ class MultiReceiverManager:
             if not peer:
                 return
 
-            peer.pause_pipeline()  # PAUSED
+            # 더 이상 pause하지 않음
 
-            # 이 sender가 들어가 있던 모든 셀 비우고 매핑 제거
             for idx, s in list(self._cell_assign.items()):
                 if s == sid:
                     try:
@@ -272,9 +233,6 @@ class MultiReceiverManager:
                     self._cell_assign.pop(idx, None)
 
             GLib.idle_add(self.ui.remove_sender_widget, sid)
-
-            # 남은 배정 기준으로 재생/정지 동기화
-            self._sync_play_states()
             print(f"[SIO] sender-share-stopped: {peer.sender_name}")
 
         @self.sio.on('signal')
@@ -334,7 +292,6 @@ class MultiReceiverManager:
         except:
             pass
 
-        # 이 sender 매핑 제거 + 셀 비우기
         for idx, s in list(self._cell_assign.items()):
             if s == sid:
                 try:
@@ -350,62 +307,27 @@ class MultiReceiverManager:
             pass
 
         GLib.idle_add(self.ui.remove_sender_widget, sid)
-
-        # 남은 배정 기준으로 재생/정지 동기화
-        self._sync_play_states()
-        
-        # 참여자 퇴장: 참여자 목록 변경 MQTT 알림
         self._notify_mqtt_change()     
 
 # ---------- 상태 조회 메서드들 ----------
     
     def _notify_mqtt_change(self):
-       """참여자 변경시 MQTT 알림"""
        if self.mqtt_publisher:
            user_names = self.get_all_senders_name()
            self.mqtt_publisher.publish("participant/update", json.dumps(user_names))
 
     def get_all_senders_name(self):
-        """MQTT 응답용 사용자 이름 리스트"""
         return [ self.peers[sid].sender_name 
                 for sid, peer in self.peers.items()] 
 
     def get_all_senders(self):
-        """연결된 모든 sender들의 정보 반환
-        
-        Returns:
-            list: [{sender_id, sender_name, share_active}, ...] 형태의 리스트
-                  모든 연결된 sender들 포함 (공유 중지된 것도 포함)
-        
-        Example:
-             [
-                {id: 'abc123def456', name: 'Desktop-Computer', active: True}, 
-                {id: '789xyz321', name: 'Laptop-User', active: True},
-                {id: 'qwe456rty', name: 'Mobile-Phone', active: False}
-            ]
-
-        """
         return [{"id": sid, 
                  "name": peer.sender_name,
                  "active": peer.share_active
                  } 
                 for sid, peer in self.peers.items()] 
         
-    # 추후, sender들의 화면 공유 상태에 따라 공유 활성화된 사용자 리스트가 필요할 때를 대비한 함수.  
     def get_active_senders(self):
-        """현재 화면 공유 중인 sender들의 정보 반환
-        
-        Returns:
-            list: [{sender_id, sender_name}, ...] 형태의 리스트
-                  공유 중인 sender들만 포함 (share_active=True)
-        
-        Example:
-            [
-                {id: 'abc123def456', name: 'Desktop-Computer'}, 
-                {id: '789xyz321', name: 'Laptop-User'}
-            ]
-        """
-        
         return [{"id": sid, 
                  "name":self.peers[sid].sender_name} 
                 for sid in self._active_sender_ids()

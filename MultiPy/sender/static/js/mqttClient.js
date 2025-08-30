@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
 function connect() {
 	if (connectionFlag) return;
 
-	const broker = "localhost"; // 웹소켓 브로커 URL
+	const broker = "192.168.0.54"; // 웹소켓 브로커 URL
 	const port = 9001;               // 웹소켓 포트
 
 	console.log(`[DEBUG] 브로커 연결 시도: ${broker}:${port} | 클라이언트ID: ${CLIENT_ID}`);

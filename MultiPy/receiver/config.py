@@ -4,7 +4,7 @@
 import ssl
 
 # 서버 설정
-SIGNALING_URL = "https://192.168.0.53:3001"
+SIGNALING_URL = "https://192.168.0.54:3001"
 RECEIVER_NAME = "Receiver-1"
 
 # SSL 설정

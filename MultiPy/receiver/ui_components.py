@@ -135,9 +135,13 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             self._grid.addWidget(cells[0], 0, 0, 2, 1)
             self._grid.addWidget(cells[1], 0, 1, 2, 1)
         elif mode == 3 and len(cells) >= 3:
-            self._grid.addWidget(cells[0], 0, 0, 1, 1)
+            self._grid.addWidget(cells[0], 0, 0, 2, 1)
             self._grid.addWidget(cells[1], 0, 1, 1, 1)
-            self._grid.addWidget(cells[2], 1, 0, 1, 2)
+            self._grid.addWidget(cells[2], 1, 1, 1, 1)
+            self._grid.setColumnStretch(0, 1)
+            self._grid.setColumnStretch(1, 1)
+            self._grid.setRowStretch(0, 1)
+            self._grid.setRowStretch(1, 1)
         elif mode == 4:
             for i, cell in enumerate(cells[:4]):
                 r, c = divmod(i, 2)
