@@ -30,6 +30,7 @@ class MultiReceiverManager:
         self._bind_socket_events()
         self.ui.switchRequested.connect(self.switch_by_offset)
 
+        # 현재 레이아웃에서 어떤 셀에 어떤 sender가 들어가 있는지
         self._cell_assign: dict[int, str] = {}   # cell_index -> sender_id
 
         if self.view_manager:
@@ -61,36 +62,47 @@ class MultiReceiverManager:
         return [(sid, p.sender_name) for sid, p in self.peers.items()]
     
     def pause_all_streams(self):
+        """모드 전환 시 전체 정지(준비상태)"""
         for p in self.peers.values():
             try:
                 p.pause_pipeline()
             except Exception:
                 pass
-
         self._cell_assign.clear()
 
+    # ---- 핵심: 배정된 셀 기준으로 재생/정지 상태 동기화 ----
+    def _sync_play_states(self):
+        """셀에 배정된 sender는 PLAYING, 그 외는 PAUSED로 동기화"""
+        assigned = set(self._cell_assign.values())
+        for sid, p in self.peers.items():
+            try:
+                if sid in assigned:
+                    p.resume_pipeline()
+                else:
+                    p.pause_pipeline()
+            except Exception:
+                pass
+
     def assign_sender_to_cell(self, cell_index: int, sender_id: str):
+        """특정 셀에 sender 배정. 배정된 모든 sender는 PLAYING 유지."""
         if sender_id not in self.peers or not (0 <= cell_index):
             return
         target = self.peers[sender_id]
 
-        # 1) 기존 다른 셀에서 같은 sender 제거
+        # 1) 동일 sender가 다른 셀에 들어가 있으면 그 셀에서 제거(중복 배정 방지)
         for idx, sid in list(self._cell_assign.items()):
             if sid == sender_id and idx != cell_index:
                 try:
-                    # 셀 비우기
-                    self.view_manager.cells[idx].clear()
+                    if self.view_manager and 0 <= idx < len(self.view_manager.cells):
+                        self.view_manager.cells[idx].clear()
                 except Exception:
                     pass
                 self._cell_assign.pop(idx, None)
 
-        # 2) 다른 sender들은 pause
-        for sid, p in self.peers.items():
-            if sid != sender_id:
-                try:
-                    p.pause_pipeline()
-                except Exception:
-                    pass
+        # 2) 해당 셀에 이전에 배정돼 있던 sender가 있으면, 매핑만 제거
+        prev_sid = self._cell_assign.get(cell_index)
+        if prev_sid and prev_sid != sender_id:
+            self._cell_assign.pop(cell_index, None)
 
         # 3) UI 스레드에서 대상 sender 위젯을 셀에 재배치
         def _ensure_and_put():
@@ -108,19 +120,23 @@ class MultiReceiverManager:
                 GLib.idle_add(target.update_window_from_widget, w)
 
                 from config import UI_OVERLAY_DELAY_MS
-                def _resume_and_rebind():
+                def _rebind():
+                    # 선택 셀에 들어간 대상은 확실히 재생/바인딩
                     target.resume_pipeline()
                     target._force_overlay_handle()
+                    # 이후 전체 동기화로 여러 셀에 배정된 sender들도 PLAYING 되도록
+                    self._sync_play_states()
                     return False
-                GLib.timeout_add(UI_OVERLAY_DELAY_MS, _resume_and_rebind)
+                GLib.timeout_add(UI_OVERLAY_DELAY_MS, _rebind)
 
             return False
         GLib.idle_add(_ensure_and_put)
 
-        # 4) 상태 갱신
-        self.active_sender_id = sender_id
+        # 4) 상태 갱신(매핑 업데이트 후, 전체 상태 동기화)
         self._cell_assign[cell_index] = sender_id
-
+        self.active_sender_id = sender_id
+        # 즉시 한 번 동기화(지연 리바인딩 후에도 한 번 더 동기화됨)
+        self._sync_play_states()
 
     def _nudge_focus(self):
         def _do():
@@ -263,48 +279,72 @@ class MultiReceiverManager:
                 GLib.idle_add(lambda p=peer: (p._ensure_transceivers(), p._maybe_create_offer()))
 
             peer = self.peers[sid]
-            peer.resume_pipeline()  # PLAYING
+            # 새 스트림 수신 준비: 우선 재생
+            peer.resume_pipeline()
             GLib.idle_add(self.ui.ensure_widget, sid, name or peer.sender_name)
 
-            # 🔹 첫 진입: 모드=1 만들고, 위젯을 선택된 셀로 옮긴다
+            # 첫 진입: 모드=1 만들고, 선택 셀로 옮기는 로직(기존 유지)
             if self.view_manager and self.view_manager.mode is None:
                 GLib.idle_add(lambda: self.view_manager.set_mode(1))
 
                 def _assign_into_cell():
-                    w = self.ui._widgets.get(sid)  # 또는 self.ui.get_widget(sid) 메서드가 있으면 사용
+                    w = self.ui._widgets.get(sid)
                     if w and self.view_manager:
                         try:
-                            w.setParent(None)  # 기존 부모 레이아웃에서 떼기
+                            w.setParent(None)
                         except Exception:
                             pass
-                        self.view_manager.assign_sender_to_selected(w)
+                        # view_manager가 선택된 셀로 배치해주는 헬퍼가 있다고 가정
+                        # (없다면 외부에서 requestAssign 신호를 사용)
+                        try:
+                            self.view_manager.assign_sender_to_selected(w)
+                        except Exception:
+                            pass
                     return False
                 GLib.idle_add(_assign_into_cell)
 
-                # 새 부모(winId)로 오버레이 재바인딩
                 from config import UI_OVERLAY_DELAY_MS
                 GLib.timeout_add(UI_OVERLAY_DELAY_MS,
-                                lambda p=peer: (p._force_overlay_handle() or False))
+                                 lambda p=peer: (p._force_overlay_handle() or False))
+
+            # 여러 셀에 배정된 sender는 모두 PLAYING 되도록 동기화
+            self._sync_play_states()
 
             if self.active_sender_id is None:
                 self._set_active_sender(sid)
 
             print(f"[SIO] sender-share-started: {peer.sender_name}")
 
-
-
         @self.sio.on('sender-share-stopped')
         def on_sender_share_stopped(data):
             sid = data.get('id') or data.get('senderId') or data.get('from')
-            if not sid: return
+            if not sid: 
+                return
             peer = self.peers.get(sid)
-            if not peer: return
+            if not peer:
+                return
+
             peer.pause_pipeline()  # PAUSED
+
+            # 이 sender가 들어가 있던 모든 셀 비우고 매핑 제거
+            for idx, s in list(self._cell_assign.items()):
+                if s == sid:
+                    try:
+                        if self.view_manager and 0 <= idx < len(self.view_manager.cells):
+                            self.view_manager.cells[idx].clear()
+                    except Exception:
+                        pass
+                    self._cell_assign.pop(idx, None)
+
             GLib.idle_add(self.ui.remove_sender_widget, sid)
+
             if self.active_sender_id == sid:
                 actives = self._active_sender_ids()
                 next_sid = actives[0] if actives else None
                 self._set_active_sender(next_sid)
+
+            # 남은 배정 기준으로 재생/정지 동기화
+            self._sync_play_states()
             print(f"[SIO] sender-share-stopped: {peer.sender_name}")
 
         @self.sio.on('signal')
@@ -358,12 +398,33 @@ class MultiReceiverManager:
             return
         name = self.peers[sid].sender_name
         print(f"[CLEANUP] remove sender {name} ({reason})")
-        peer = self.peers.pop(sid)
-        try: peer.stop()
-        except: pass
-        try: self._order.remove(sid)
-        except ValueError: pass
+        peer = self.peers.pop(sid, None)
+        try:
+            if peer:
+                peer.stop()
+        except:
+            pass
+
+        # 이 sender 매핑 제거 + 셀 비우기
+        for idx, s in list(self._cell_assign.items()):
+            if s == sid:
+                try:
+                    if self.view_manager and 0 <= idx < len(self.view_manager.cells):
+                        self.view_manager.cells[idx].clear()
+                except Exception:
+                    pass
+                self._cell_assign.pop(idx, None)
+
+        try:
+            self._order.remove(sid)
+        except ValueError:
+            pass
+
         GLib.idle_add(self.ui.remove_sender_widget, sid)
+
         if self.active_sender_id == sid:
             actives = self._active_sender_ids()
             self._set_active_sender(actives[0] if actives else None)
+
+        # 남은 배정 기준으로 재생/정지 동기화
+        self._sync_play_states()
