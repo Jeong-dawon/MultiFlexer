@@ -48,7 +48,7 @@ def main():
     manager.start()
     
     # Mqtt - MultiReceiverManager 양방향 연결
-    mqtt_manager = MqttManager(receiver_manager=manager, ip="localhost", port=1883)
+    mqtt_manager = MqttManager(receiver_manager=manager, ip="192.168.0.54", port=1883)
     manager.mqtt_publisher = mqtt_manager  # MQTT 클라이언트 설정
     
     # 종료 핸들러 정의 및 연결

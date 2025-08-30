@@ -2,7 +2,7 @@
 // WebRTC Sender (화면 공유 송신자) - 자동 시작 버전
 // ======================================
 
-const socket = io('https://localhost:3001');
+const socket = io('https://192.168.0.54:3001');
 
 let localStream = null;                   // 현재 송출 중인 화면 스트림
 const peerConnections = {};               // receiverId -> RTCPeerConnection
