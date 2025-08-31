@@ -143,6 +143,8 @@ io.on('connection', (socket) => {
 
 // ---------- Start Server ----------
 const PORT = 3001;
-server.listen(PORT, () => {
-  console.log(`Signaling server listening on port ${PORT}`);
+const HOST = '0.0.0.0'; // 모든 IP에서 접속 허용
+
+server.listen(PORT, HOST, () => {
+  console.log(`Signaling server listening on ${HOST}:${PORT}`);
 });
