@@ -93,25 +93,23 @@ class MqttManager:
                 return {"layout": 1, "participants": []}
         
             # view_mode_manager에서 현재 상태 가져오기
-            current_layout = getattr(self.view_mode_manager, 'current_layout', 1)
-            active_screens = []
-        
-            # 현재 활성화된 화면들 가져오기
-            if hasattr(self.view_mode_manager, 'get_active_screens'):
-                active_screens = self.view_mode_manager.get_active_screens()
-        
+            current_layout = getattr(self.view_mode_manager, 'mode', 1) or 1
+            cell_assignments = getattr(self.view_mode_manager, 'cell_assignments', {})
+            
             # 참여자 정보 구성
             participants = []
-            for screen_info in active_screens:
-                if 'peer_id' in screen_info and 'position' in screen_info:
-                    peer_id = screen_info['peer_id']
-                    if self.receiver_manager and peer_id in self.receiver_manager.peers:
-                        peer = self.receiver_manager.peers[peer_id]
-                        participants.append({
-                            'id': peer_id,
-                            'name': peer.sender_name,
-                            'position': screen_info['position']
-                        })
+            for cell_index, sender_id in cell_assignments.items():
+                 # receiver_manager에서 이름 찾기
+                sender_name = "Unknown"
+                if self.receiver_manager:
+                    if hasattr(self.receiver_manager, 'peers') and sender_id in self.receiver_manager.peers:
+                        peer = self.receiver_manager.peers[sender_id]
+                        sender_name = getattr(peer, 'sender_name', sender_id)
+            
+                participants.append({
+                    'id': sender_id,
+                    'name': sender_name
+                })
         
             return {
                 "layout": current_layout,

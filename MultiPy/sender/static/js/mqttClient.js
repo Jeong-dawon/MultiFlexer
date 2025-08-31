@@ -117,7 +117,7 @@ function onMessageArrived(msg) {
 			console.log("[MQTT] 화면 공유 정보:", screenData);
 
 			// 상태 관리자 업데이트
-			if (window.statesManager) {
+			if (window.stateManager) {
 				window.stateManager.updateSharingInfo(screenData);  // updateSharingInfo 구현 필요
 			}
 

@@ -55,15 +55,19 @@ class ViewModeManager(QtCore.QObject):
         print(f"[DEBUG] apply_layout_data 호출: {layout_data}")
         
         try:
-            # 레이아웃 모드 설정
+            # 레이아웃 모드와 참가자 정보 추출
             layout_mode = layout_data.get('layout', 1)
             participants = layout_data.get('participants', [])
             
             print(f"[DEBUG] 레이아웃 모드: {layout_mode}, 참가자 수: {len(participants)}")
             
+            # 기존 상태 정리
+            self.cell_assignments.clear()
+            self.active_senders.clear()
+
             # 모드 설정
             self.set_mode(layout_mode)
-            
+
             # 참가자들을 각 셀에 할당
             self._assign_participants(participants)
             
@@ -92,13 +96,12 @@ class ViewModeManager(QtCore.QObject):
             if sender_id:
                 print(f"[DEBUG] 셀 {idx}에 {sender_name}({sender_id}) 할당")
                 
-                # 셀 배정 정보 저장
+                # 상태 정보 업데이트
                 self.cell_assignments[idx] = sender_id
                 self.active_senders.append(sender_id)
                 
-                # 실제 할당 요청 (약간의 지연을 두어 레이아웃이 완전히 적용된 후 실행)
-                QtCore.QTimer.singleShot(100, 
-                    lambda i=idx, s=sender_id: self.requestAssign.emit(i, s))
+                # 실제 할당 요청
+                self.requestAssign.emit(idx, sender_id)
 
     def _setup_shortcuts(self):
         # ✅ 메인 윈도우(self.ui)를 부모로 해야 전역 단축키처럼 동작

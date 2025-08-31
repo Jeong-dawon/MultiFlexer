@@ -133,6 +133,58 @@ const stateManager = {
     getPlacedParticipantNames() {
         return this.placedParticipants.map(p => p.name);
     },
+
+    // 초기 접속 시 실시간으로 공유되고 있는 화면 상태 동기화
+    updateSharingInfo(screenData) {
+        try {
+            // 서버 상태로 업데이트
+            this.currentLayout = screenData.layout || 1;
+            this.placedParticipants = screenData.participants || [];
+
+            console.log(`[STATE] 동기화: 레이아웃 ${this.currentLayout}, 참가자 ${this.placedParticipants.length}명`);
+
+            // HTML UI를 서버 상태에 맞춰 업데이트
+            this._syncWithServerState();
+
+        } catch (error) {
+            console.error("[STATE ERROR] 화면 상태 동기화 실패:", error);
+        }
+    },
+
+    // 서버 상태와 HTML 동기화
+    _syncWithServerState() {
+        if (this.placedParticipants.length === 0) {
+            // 서버에 배치된 참가자가 없으면 초기화
+            uiManager.resetVideoArea();
+            return;
+        }
+
+        // 서버의 레이아웃으로 HTML 화면 구성
+        uiManager.selectLayout(this.currentLayout);
+
+        // 서버에 배치된 참가자들을 HTML에 표시
+        this.placedParticipants.forEach((participant, index) => {
+            const targetSlot = document.querySelector(`#slot-${index}`);
+            if (targetSlot && !targetSlot.hasAttribute('data-occupied')) {
+                uiManager.addParticipantToSlot(participant.name, targetSlot);
+            }
+        });
+
+        // 참가자 목록의 버튼 색상도 동기화
+        this._updateParticipantButtonStates();
+    },
+
+    // 참가자 버튼 상태 동기화
+    _updateParticipantButtonStates() {
+        const placedNames = this.placedParticipants.map(p => p.name);
+
+        // 모든 참가자 요소의 버튼 상태 업데이트
+        document.querySelectorAll('.participant').forEach(participantElement => {
+            const participantName = participantElement.querySelector('span').textContent;
+            const isPlaced = placedNames.includes(participantName);
+            uiManager.updateParticipantButtonColor(participantName, isPlaced);
+        });
+    }
 };
 
 // === UI 관리 ===
