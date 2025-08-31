@@ -1,4 +1,5 @@
 import json, paho.mqtt.client as mqtt
+from PyQt5 import QtCore
 
 # 전역 변수로 receiver_manager 저장
 receiver_manager = None
@@ -58,23 +59,32 @@ class MqttManager:
             print(f"관리자가 공유 화면 정보를 요청합니다.")        
             current_screen_info = self._get_current_screen_info()
             self.publish("screen/response", json.dumps(current_screen_info))
-                
+        
         elif msg.topic == "screen/update":
             print(f"관리자로부터 화면 배치 변경 요청을 받았습니다.")
             try:
-                # JSON 메시지 파싱
                 layout_data = json.loads(msg.payload.decode())
                 print(f"받은 화면 배치 데이터: {layout_data}")
-            
-                # 화면 배치 적용
-                self.view_mode_manager.apply_layout_data(layout_data)
-                # self._apply_screen_layout(layout_data)
-            
-            except json.JSONDecodeError as e:
-               print(f"[ERROR] JSON 파싱 실패: {e}")
+        
+                from PyQt5 import QtCore
+        
+                print("[DEBUG] QMetaObject.invokeMethod 사용")
+        
+                # QMetaObject.invokeMethod 사용
+                result = QtCore.QMetaObject.invokeMethod(
+                    self.view_mode_manager,
+                    "apply_layout_data",
+                    QtCore.Qt.QueuedConnection,
+                    QtCore.Q_ARG(dict, layout_data)
+                )
+        
+                print(f"[DEBUG] invokeMethod 결과: {result}")
+        
             except Exception as e:
-              print(f"[ERROR] 화면 배치 적용 실패: {e}")
-       
+                print(f"[ERROR] screen/update 처리 중 오류: {e}")
+                import traceback
+                traceback.print_exc()
+
     # 현재 화면 정보 가져오기 (screen/request 처리용)
     def _get_current_screen_info(self):
         """현재 화면 배치 정보 반환"""

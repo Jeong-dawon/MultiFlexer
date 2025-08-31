@@ -39,65 +39,66 @@ class ViewModeManager(QtCore.QObject):
         self._senders_provider = provider_fn
 
 
-    # # 새로운 메서드: 외부 배치 데이터로 화면 설정
-    # def apply_layout_data(self, layout_data: dict):
-    #     """
-    #     외부 배치 데이터를 받아서 화면 분할 모드를 설정
-    #     layout_data = {
-    #         'layout': 1,
-    #         'participants': [
-    #             {'id': 'tOQnjQ1l63p98Nc0AAAJ', 'name': '은비'},
-    #             ...
-    #         ]
-    #     }
-    #     """
-    #     print(f"[DEBUG] apply_layout_data 호출: {layout_data}")
+    # 외부 배치 데이터로 화면 설정
+    @QtCore.pyqtSlot(dict)
+    def apply_layout_data(self, layout_data: dict):
+        """
+        외부 배치 데이터를 받아서 화면 분할 모드를 설정
+        layout_data = {
+            'layout': 1,
+            'participants': [
+                {'id': 'tOQnjQ1l63p98Nc0AAAJ', 'name': '은비'},
+                ...
+            ]
+        }
+        """
+        print(f"[DEBUG] apply_layout_data 호출: {layout_data}")
         
-    #     try:
-    #         # 레이아웃 모드 설정
-    #         layout_mode = layout_data.get('layout', 1)
-    #         participants = layout_data.get('participants', [])
+        try:
+            # 레이아웃 모드 설정
+            layout_mode = layout_data.get('layout', 1)
+            participants = layout_data.get('participants', [])
             
-    #         print(f"[DEBUG] 레이아웃 모드: {layout_mode}, 참가자 수: {len(participants)}")
+            print(f"[DEBUG] 레이아웃 모드: {layout_mode}, 참가자 수: {len(participants)}")
             
-    #         # 모드 설정
-    #         self.set_mode(layout_mode)
+            # 모드 설정
+            self.set_mode(layout_mode)
             
-    #         # 참가자들을 각 셀에 할당
-    #         self._assign_participants(participants)
+            # 참가자들을 각 셀에 할당
+            self._assign_participants(participants)
             
-    #     except Exception as e:
-    #         print(f"[ERROR] apply_layout_data 처리 중 오류: {e}")
-    #         # 오류 시 기본 모드로 설정
-    #         self.set_mode(1)
+        except Exception as e:
+            print(f"[ERROR] apply_layout_data 처리 중 오류: {e}")
+            # 오류 시 기본 모드로 설정
+            self.set_mode(1)
 
-    # def _assign_participants(self, participants: list):
-    #     """참가자들을 생성된 셀들에 순서대로 할당"""
-    #     print(f"[DEBUG] _assign_participants 호출: {participants}")
+    def _assign_participants(self, participants: list):
+        """참가자들을 생성된 셀들에 순서대로 할당"""
+        print(f"[DEBUG] _assign_participants 호출: {participants}")
         
-    #     if not self.cells:
-    #         print("[WARNING] 셀이 생성되지 않았습니다")
-    #         return
+        if not self.cells:
+            print("[WARNING] 셀이 생성되지 않았습니다")
+            return
         
-    #     # 각 참가자를 셀에 할당
-    #     for idx, participant in enumerate(participants):
-    #         if idx >= len(self.cells):
-    #             print(f"[WARNING] 참가자가 셀 수보다 많습니다. 인덱스 {idx}는 건너뜁니다")
-    #             break
+        # 각 참가자를 셀에 할당
+        for idx, participant in enumerate(participants):
+            if idx >= len(self.cells):
+                print(f"[WARNING] 참가자가 셀 수보다 많습니다. 인덱스 {idx}는 건너뜁니다")
+                break
                 
-    #         sender_id = participant.get('id')
-    #         sender_name = participant.get('name')
+            sender_id = participant.get('id')
+            sender_name = participant.get('name')
             
-    #         if sender_id:
-    #             print(f"[DEBUG] 셀 {idx}에 {sender_name}({sender_id}) 할당")
+            if sender_id:
+                print(f"[DEBUG] 셀 {idx}에 {sender_name}({sender_id}) 할당")
                 
-    #             # 셀 배정 정보 저장
-    #             self.cell_assignments[idx] = sender_id
-    #             self.active_senders.append(sender_id)
+                # 셀 배정 정보 저장
+                self.cell_assignments[idx] = sender_id
+                self.active_senders.append(sender_id)
                 
-    #             # 실제 할당 요청 (약간의 지연을 두어 레이아웃이 완전히 적용된 후 실행)
-    #             QtCore.QTimer.singleShot(100, 
-    #                 lambda i=idx, s=sender_id: self.requestAssign.emit(i, s))
+                # 실제 할당 요청 (약간의 지연을 두어 레이아웃이 완전히 적용된 후 실행)
+                QtCore.QTimer.singleShot(100, 
+                    lambda i=idx, s=sender_id: self.requestAssign.emit(i, s))
 
     def _setup_shortcuts(self):
         # ✅ 메인 윈도우(self.ui)를 부모로 해야 전역 단축키처럼 동작
