@@ -12,17 +12,18 @@ document.addEventListener('DOMContentLoaded', function () {
 function connect() {
 	if (connectionFlag) return;
 
-	const broker = "192.168.0.54"; // 웹소켓 브로커 URL
+	const broker = window.location.hostname; // 웹소켓 브로커 URL
 	const port = 9001;               // 웹소켓 포트
 
 	console.log(`[DEBUG] 브로커 연결 시도: ${broker}:${port} | 클라이언트ID: ${CLIENT_ID}`);
 
-	client = new Paho.MQTT.Client(broker, Number(port), CLIENT_ID);
+	client = new Paho.MQTT.Client(broker, Number(port), "/mqtt", CLIENT_ID);
 
 	client.onConnectionLost = onConnectionLost;
 	client.onMessageArrived = onMessageArrived;
 
 	client.connect({
+		useSSL: true,
 		onSuccess: onConnect,
 		onFailure: (err) => console.error("[ERROR] 브로커 연결 실패:", err)
 	});

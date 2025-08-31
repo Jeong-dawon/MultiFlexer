@@ -3,7 +3,7 @@ import json, paho.mqtt.client as mqtt
 # 전역 변수로 receiver_manager 저장
 receiver_manager = None
 class MqttManager:
-    def __init__(self, receiver_manager=None, ip="192.168.0.54", port=1883):
+    def __init__(self, receiver_manager=None, ip="localhost", port=1883):
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
@@ -38,7 +38,7 @@ class MqttManager:
         self.client.publish(topic, payload)
 
     # ---------- 콜백 ----------
-    def _on_connect(slef, client, userdata, flag, rc, prop=None):
+    def _on_connect(self, client, userdata, flag, rc, prop=None):
         client.subscribe("participant/request") # "participant/request" 토픽으로 구독, 참여자 목록 요청 
         client.subscribe("screen/request") # "screen/request" 토픽으로 구독, 화면 상태 요청
         client.subscribe("screen/update") # "screen/update" 토픽으로 구독, 관리자의 화면 배치 정보 수신
@@ -56,4 +56,3 @@ class MqttManager:
         elif msg.topic == "screen/request":
             print(f"관리자가 공유 화면 정보를 요청합니다.")        
             ##### client.publish("screen/response", get_user_list_for_mqtt)
-        
