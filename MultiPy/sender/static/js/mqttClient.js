@@ -87,13 +87,27 @@ function onMessageArrived(msg) {
 			const userList = JSON.parse(msg.payloadString);
 			console.log("[MQTT] 사용자 목록:", userList);
 
-			// 사용자 목록 UI 업데이트
-			if (window.stateManager) {
-				window.stateManager.updateAllParticipants(userList);
+			// 데이터 구조 확인
+			if (Array.isArray(userList)) {
+				userList.forEach((user, index) => {
+					console.log(`사용자 ${index + 1}:`, {
+						id: user.id,
+						name: user.name,
+						active: user.active
+					});
+				});
+
+				// 사용자 목록 UI 업데이트
+				if (window.stateManager) {
+					window.stateManager.updateAllParticipants(userList);
+				}
+			} else {
+				console.warn("[MQTT] 예상과 다른 데이터 구조:", userList);
 			}
 
 		} catch (error) {
 			console.error("[MQTT] JSON 파싱 실패:", error);
+			console.error("[MQTT] 원본 데이터:", msg.payloadString);
 		}
 	}
 
@@ -104,7 +118,7 @@ function onMessageArrived(msg) {
 
 			// 상태 관리자 업데이트
 			if (window.statesManager) {
-				window.stateManager.updateSharingInfo(screenData);
+				window.stateManager.updateSharingInfo(screenData);  // updateSharingInfo 구현 필요
 			}
 
 		} catch (error) {

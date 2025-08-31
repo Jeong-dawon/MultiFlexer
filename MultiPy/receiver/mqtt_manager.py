@@ -25,7 +25,7 @@ class MqttManager:
             return []
             
         # get_active_senders_name() 메서드 직접 사용
-        return self.receiver_manager.get_all_senders_name()
+        return self.receiver_manager.get_all_senders()
         
     # ---------- 외부 호출 메서드 ----------
     def broadcast_participant_update(self):
@@ -56,4 +56,58 @@ class MqttManager:
         
         elif msg.topic == "screen/request":
             print(f"관리자가 공유 화면 정보를 요청합니다.")        
-            ##### client.publish("screen/response", get_user_list_for_mqtt)
+            current_screen_info = self._get_current_screen_info()
+            self.publish("screen/response", json.dumps(current_screen_info))
+                
+        elif msg.topic == "screen/update":
+            print(f"관리자로부터 화면 배치 변경 요청을 받았습니다.")
+            try:
+                # JSON 메시지 파싱
+                layout_data = json.loads(msg.payload.decode())
+                print(f"받은 화면 배치 데이터: {layout_data}")
+            
+                # 화면 배치 적용
+                self.view_mode_manager.apply_layout_data(layout_data)
+                # self._apply_screen_layout(layout_data)
+            
+            except json.JSONDecodeError as e:
+               print(f"[ERROR] JSON 파싱 실패: {e}")
+            except Exception as e:
+              print(f"[ERROR] 화면 배치 적용 실패: {e}")
+       
+    # 현재 화면 정보 가져오기 (screen/request 처리용)
+    def _get_current_screen_info(self):
+        """현재 화면 배치 정보 반환"""
+        try:
+            if not self.view_mode_manager:
+                return {"layout": 1, "participants": []}
+        
+            # view_mode_manager에서 현재 상태 가져오기
+            current_layout = getattr(self.view_mode_manager, 'current_layout', 1)
+            active_screens = []
+        
+            # 현재 활성화된 화면들 가져오기
+            if hasattr(self.view_mode_manager, 'get_active_screens'):
+                active_screens = self.view_mode_manager.get_active_screens()
+        
+            # 참여자 정보 구성
+            participants = []
+            for screen_info in active_screens:
+                if 'peer_id' in screen_info and 'position' in screen_info:
+                    peer_id = screen_info['peer_id']
+                    if self.receiver_manager and peer_id in self.receiver_manager.peers:
+                        peer = self.receiver_manager.peers[peer_id]
+                        participants.append({
+                            'id': peer_id,
+                            'name': peer.sender_name,
+                            'position': screen_info['position']
+                        })
+        
+            return {
+                "layout": current_layout,
+                "participants": participants
+            }
+
+        except Exception as e:
+            print(f"[ERROR] 현재 화면 정보 조회 중 오류: {e}")
+            return {"layout": 1, "participants": []}

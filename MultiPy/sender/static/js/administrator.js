@@ -2,11 +2,11 @@
 
 // === 상태 관리 ===
 const stateManager = {
-    // 전체 참여자 목록 (MQTT로부터 받은 전체 사용자 - 모두 화면 공유 중)
+    // 전체 참여자 목록 (MQTT로부터 받은 전체 사용자 - 객체 배열)
     allParticipants: [],
 
-    // 비디오 영역에 배치된 참여자들 (관리자가 선택한 표시 대상)
-    placedParticipants: [],
+    // 비디오 영역에 배치된 참여자들 
+    placedParticipants: [], //[{id: "...", name: "..."}, ...] 형태
 
     // 현재 레이아웃
     currentLayout: 1,
@@ -16,40 +16,63 @@ const stateManager = {
         this.allParticipants = [...participants];
         console.log("[STATE] 전체 참여자 목록 업데이트:", this.allParticipants);
 
+        // 모든 참여자 이름 추출
+        const allParticipantNames = this.getAllParticipantNames();
+
         // 기존 배치된 참여자 중 목록에서 제거된 사용자가 있는지 확인
-        this.placedParticipants = this.placedParticipants.filter(name =>
-            this.allParticipants.includes(name)
+        this.placedParticipants = this.placedParticipants.filter(placedParticipant =>
+            allParticipantNames.includes(placedParticipant.name)
         );
 
-        // UI 업데이트
-        uiManager.updateParticipantList(this.allParticipants);
+        // UI 업데이트 - 모든 참여자 표시
+        uiManager.updateParticipantList(allParticipantNames);
+    },
+
+    // 모든 참여자 이름 목록 반환 (활성/비활성 구분 없이)
+    getAllParticipantNames() {
+        return this.allParticipants.map(participant => participant.name);
+    },
+
+    // 이름으로 참여자 전체 정보 찾기
+    getParticipantByName(participantName) {
+        return this.allParticipants.find(p => p.name === participantName);
     },
 
     // 참여자를 비디오 영역에 배치
     addToVideoArea(participantName) {
-        if (!this.allParticipants.includes(participantName)) {
+        const allNames = this.getAllParticipantNames();
+
+        if (!allNames.includes(participantName)) {
             console.warn("[STATE] 존재하지 않는 참여자:", participantName);
             return false;
         }
 
-        if (!this.placedParticipants.includes(participantName)) {
-            this.placedParticipants.push(participantName);
-            console.log("[STATE] 참여자 배치:", participantName);
+        // 이미 배치된 참여자인지 확인 (객체 배열에서 이름으로 확인)
+        const isAlreadyPlaced = this.placedParticipants.some(p => p.name === participantName);
+        if (!isAlreadyPlaced) {
+            // 전체 정보 찾아서 추가
+            const participantInfo = this.getParticipantByName(participantName);
+            if (participantInfo) {
+                this.placedParticipants.push({
+                    id: participantInfo.id,
+                    name: participantInfo.name
+                });
+                console.log("[STATE] 참여자 배치:", participantInfo);
 
-            // MQTT로 화면 배치 상태 전송
-            this.publishPlacementUpdate();
-            return true;
+                // MQTT로 화면 배치 상태 전송
+                this.publishPlacementUpdate();
+                return true;
+            }
         }
-
         return false;
     },
 
     // 참여자를 비디오 영역에서 제거
     removeFromVideoArea(participantName) {
-        const index = this.placedParticipants.indexOf(participantName);
+        const index = this.placedParticipants.findIndex(p => p.name === participantName);
         if (index > -1) {
-            this.placedParticipants.splice(index, 1);
-            console.log("[STATE] 참여자 제거:", participantName);
+            const removed = this.placedParticipants.splice(index, 1)[0];
+            console.log("[STATE] 참여자 제거:", removed);
 
             // MQTT로 화면 배치 상태 전송
             this.publishPlacementUpdate();
@@ -58,21 +81,25 @@ const stateManager = {
         return false;
     },
 
-    // 배치 상태를 MQTT로 전송
+    // 배치 상태를 MQTT로 전송 
     publishPlacementUpdate() {
         if (window.publishPlacementState) {
             const placementData = {
                 layout: this.currentLayout,
-                participants: this.placedParticipants
+                participants: this.placedParticipants  // 객체 배열 [{id, name}, ...]
             };
             window.publishPlacementState(JSON.stringify(placementData));
+            console.log("[STATE] 배치 상태 전송:", placementData);
         }
     },
 
     /* 전송되는 데이터 구조
         {
-        layout: 2,                          // 현재 레이아웃 (1~4)
-        participants: ["은비", "아린"]      // 배치된 참여자 목록
+            layout: 2,
+            participants: [
+                {id: "sender_id_123", name: "은비"},
+                {id: "sender_id_456", name: "아린"}
+            ]
         }
     */
 
@@ -86,12 +113,12 @@ const stateManager = {
 
     // 참여자가 비디오 영역에 배치되어 있는지 확인
     isPlaced(participantName) {
-        return this.placedParticipants.includes(participantName);
+        return this.placedParticipants.some(p => p.name === participantName);
     },
 
-    // 음성 인식에 사용할 참여자 이름 목록 반환
+    // 음성 인식에 사용할 참여자 이름 목록 반환 
     getAllParticipants() {
-        return [...this.allParticipants];
+        return this.getAllParticipantNames();
     },
 
     // 최적 레이아웃 계산
@@ -100,7 +127,12 @@ const stateManager = {
         if (participantCount <= 2) return 2;
         if (participantCount <= 3) return 3;
         return 4;
-    }
+    },
+
+    // 배치된 참여자 이름 목록만 반환 (UI 호환성을 위해)
+    getPlacedParticipantNames() {
+        return this.placedParticipants.map(p => p.name);
+    },
 };
 
 // === UI 관리 ===
@@ -286,8 +318,8 @@ const uiManager = {
             return false;
         }
 
-        // 이미 배치된 참여자면 드래그 방지
-        if (stateManager.placedParticipants.includes(participantName)) {
+        // 이미 배치된 참여자면 드래그 방지 (객체 배열에서 이름으로 확인)
+        if (stateManager.isPlaced(participantName)) {
             e.preventDefault();
             return false;
         }
@@ -329,7 +361,8 @@ const uiManager = {
         const participantName = e.dataTransfer.getData('text/plain');
 
         // 이미 배치된 참여자인지 확인
-        if (stateManager.placedParticipants.includes(participantName)) {
+        if (stateManager.isPlaced(participantName)) {
+            e.target.style.background = '';
             return;
         }
 
@@ -365,7 +398,7 @@ const uiManager = {
         const participantName = e.dataTransfer.getData('text/plain');
 
         // 이미 배치된 참여자인지 확인
-        if (stateManager.placedParticipants.includes(participantName)) {
+        if (stateManager.isPlaced(participantName)) {
             e.target.style.background = '';
             return;
         }
@@ -622,7 +655,7 @@ const uiManager = {
         const participantName = e.dataTransfer.getData('text/plain');
 
         // 이미 배치된 참가자인지 확인
-        if (stateManager.placedParticipants.includes(participantName)) {
+        if (stateManager.isPlaced(participantName)) {
             if (!e.target.hasAttribute('data-occupied')) {
                 e.target.style.background = 'transparent';
                 e.target.style.border = '2px dashed rgba(255, 255, 255, 1)';
@@ -713,10 +746,10 @@ const uiManager = {
             const optimalLayout = stateManager.getOptimalLayout(stateManager.placedParticipants.length);
 
             // 현재 참가자들 정보 백업
-            const currentParticipants = [...stateManager.placedParticipants];
+            const currentParticipantNames = stateManager.getPlacedParticipantNames();
 
             // 상태 초기화
-            currentParticipants.forEach(name => {
+            currentParticipantNames.forEach(name => {
                 stateManager.removeFromVideoArea(name);
             });
 
@@ -725,7 +758,7 @@ const uiManager = {
             this.createVideoSlots();
 
             // 참가자들 재배치
-            currentParticipants.forEach((name, index) => {
+            currentParticipantNames.forEach((name, index) => {
                 const targetSlot = document.querySelector(`#slot-${index}`);
                 if (targetSlot) {
                     this.addParticipantToSlot(name, targetSlot);
@@ -755,10 +788,10 @@ const uiManager = {
         // 레이아웃 확장이 필요한 경우
         if (targetLayout > stateManager.currentLayout) {
             // 현재 참가자들 정보 백업
-            const currentParticipants = [...stateManager.placedParticipants];
+            const currentParticipantNames = stateManager.getPlacedParticipantNames();
 
             // 상태 초기화
-            currentParticipants.forEach(name => {
+            currentParticipantNames.forEach(name => {
                 stateManager.removeFromVideoArea(name);
             });
 
@@ -767,7 +800,7 @@ const uiManager = {
             this.createVideoSlots();
 
             // 참가자들 재배치
-            currentParticipants.forEach((name, index) => {
+            currentParticipantNames.forEach((name, index) => {
                 const targetSlot = document.querySelector(`#slot-${index}`);
                 if (targetSlot) {
                     this.addParticipantToSlot(name, targetSlot);
@@ -804,13 +837,14 @@ const uiManager = {
         console.log(`[UI] '${participantName}' 호출됨`);
 
         // 해당 참여자가 전체 목록에 있는지 확인
-        if (!stateManager.allParticipants.includes(participantName)) {
+        const allNames = stateManager.getAllParticipantNames();
+        if (!allNames.includes(participantName)) {
             console.warn(`[UI] 존재하지 않는 참여자: ${participantName}`);
             return;
         }
 
         // 이미 배치된 참여자인지 확인
-        if (stateManager.placedParticipants.includes(participantName)) {
+        if (stateManager.isPlaced(participantName)) {
             console.log(`[UI] 이미 배치된 참여자: ${participantName}`);
             return;
         }
@@ -829,10 +863,10 @@ const uiManager = {
             const targetLayout = Math.min(newParticipantCount, 4);
 
             // 현재 참가자들 정보 백업
-            const currentParticipants = [...stateManager.placedParticipants];
+            const currentParticipantNames = stateManager.getPlacedParticipantNames();
 
             // 상태 초기화
-            currentParticipants.forEach(name => {
+            currentParticipantNames.forEach(name => {
                 stateManager.removeFromVideoArea(name);
             });
 
@@ -841,7 +875,7 @@ const uiManager = {
             this.createVideoSlots();
 
             // 기존 참가자들 재배치
-            currentParticipants.forEach((name, index) => {
+            currentParticipantNames.forEach((name, index) => {
                 const targetSlot = document.querySelector(`#slot-${index}`);
                 if (targetSlot) {
                     this.addParticipantToSlot(name, targetSlot);

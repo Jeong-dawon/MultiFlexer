@@ -313,8 +313,8 @@ class MultiReceiverManager:
     
     def _notify_mqtt_change(self):
        if self.mqtt_publisher:
-           user_names = self.get_all_senders_name()
-           self.mqtt_publisher.publish("participant/update", json.dumps(user_names))
+           all_senders = self.get_all_senders()
+           self.mqtt_publisher.publish("participant/update", json.dumps(all_senders))
 
     def get_all_senders_name(self):
         return [ self.peers[sid].sender_name 
