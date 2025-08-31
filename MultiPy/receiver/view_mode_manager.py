@@ -15,9 +15,11 @@ class ViewModeManager(QtCore.QObject):
     def __init__(self, ui: ReceiverWindow):
         super().__init__()
         self.ui = ui
-        self.mode: int | None = None
-        self.cells: list[Cell] = []
-        self.focus_index: int = 0
+        self.mode: int | None = None    # 분할 모드 (1-4)
+        self.cells: list[Cell] = []     # 셀 목록
+        self.focus_index: int = 0       # 현재 포커스된 셀
+        self.cell_assignments: dict[int, str] = {}  # {cell_index: sender_id, ... ,cell_index: sender_id}
+        self.active_senders: list[str] = []         # 현재 표시 중인 sender들 [sender_id, sender_id, sender_id] 
 
         self._shortcuts: list[QtWidgets.QShortcut] = []
         self._senders_provider = None  # callable -> list[(sid, name)]

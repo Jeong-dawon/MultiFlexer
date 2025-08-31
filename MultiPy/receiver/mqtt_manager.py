@@ -3,13 +3,14 @@ import json, paho.mqtt.client as mqtt
 # 전역 변수로 receiver_manager 저장
 receiver_manager = None
 class MqttManager:
-    def __init__(self, receiver_manager=None, ip="localhost", port=1883):
+    def __init__(self, receiver_manager=None, view_mode_manager=None, ip="localhost", port=1883):
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
         self.client.connect(ip, port)
         self.client.loop_start()
         self.receiver_manager = receiver_manager
+        self.view_mode_manager = view_mode_manager
         
     # ---------- MQTT 중단 ----------
     def stop(self):
