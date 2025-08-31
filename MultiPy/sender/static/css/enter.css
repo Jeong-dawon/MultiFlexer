@@ -1,0 +1,233 @@
+/* enter.css - 메인 진입 페이지 스타일 */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f2f5;
+    color: #222;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+/* 배경 애니메이션 효과 */
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, 
+        rgba(4, 210, 175, 0.05) 0%, 
+        rgba(96, 170, 255, 0.05) 50%, 
+        rgba(255, 143, 107, 0.05) 100%);
+    animation: backgroundShift 10s ease-in-out infinite alternate;
+    z-index: -1;
+}
+
+@keyframes backgroundShift {
+    0% { transform: scale(1) rotate(0deg); }
+    100% { transform: scale(1.1) rotate(2deg); }
+}
+
+/* 메인 컨테이너 */
+.main-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    padding: 40px;
+    background: #fff;
+    border-radius: 24px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.08);
+    min-width: 400px;
+    text-align: center;
+}
+
+/* 로고/제목 영역 */
+.header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.logo {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #04d2af, #60aaff);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: bold;
+    color: white;
+    box-shadow: 0 8px 24px rgba(4, 210, 175, 0.3);
+    animation: logoFloat 3s ease-in-out infinite alternate;
+}
+
+@keyframes logoFloat {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(-8px); }
+}
+
+.title {
+    font-size: 32px;
+    font-weight: 600;
+    margin: 0;
+    background: linear-gradient(135deg, #04d2af, #60aaff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subtitle {
+    font-size: 18px;
+    color: #6b7280;
+    margin: 0;
+    font-weight: 400;
+}
+
+/* 버튼 영역 */
+.button-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.main-button {
+    padding: 16px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 56px;
+}
+
+/* 화면 공유 버튼 (Primary) */
+.share-button {
+    background: linear-gradient(135deg, #04d2af, #008f77);
+    color: white;
+    box-shadow: 0 8px 24px rgba(4, 210, 175, 0.4);
+}
+
+.share-button:hover {
+    background: linear-gradient(135deg, #008f77, #006b5a);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(4, 210, 175, 0.5);
+}
+
+.share-button:active {
+    transform: translateY(0px);
+}
+
+/* 관리자 버튼 (Secondary) */
+.admin-button {
+    background: #f9fafb;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+.admin-button:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+.admin-button:active {
+    transform: translateY(0px);
+}
+
+/* 버튼 아이콘 효과 */
+.button-icon {
+    font-size: 20px;
+    transition: transform 0.3s ease;
+}
+
+.main-button:hover .button-icon {
+    transform: scale(1.1);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .main-container {
+        margin: 20px;
+        padding: 32px 24px;
+        min-width: auto;
+        width: calc(100% - 40px);
+    }
+    
+    .title {
+        font-size: 28px;
+    }
+    
+    .subtitle {
+        font-size: 16px;
+    }
+    
+    .main-button {
+        padding: 14px 24px;
+        font-size: 15px;
+        min-height: 52px;
+    }
+}
+
+/* 다크 모드 */
+body.dark-mode {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #fff;
+}
+
+body.dark-mode::before {
+    background: linear-gradient(45deg, 
+        rgba(4, 210, 175, 0.1) 0%, 
+        rgba(96, 170, 255, 0.1) 50%, 
+        rgba(255, 143, 107, 0.1) 100%);
+}
+
+body.dark-mode .main-container {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .subtitle {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+body.dark-mode .admin-button {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .admin-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+}
