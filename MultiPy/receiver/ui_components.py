@@ -87,15 +87,27 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         self._setup_shortcuts()
 
     def enter_sender_mode(self):
-        self._main.setCurrentIndex(1)
+        if hasattr(self, "_landing_status") and self._landing_status:
+            self._landing_status.setText("접속자 선택 대기 중")
+            self._landing_status.setStyleSheet("color: black;")
         t = getattr(self, "_status_timer", None)
-        if t: t.stop()
-        self.setStyleSheet("QMainWindow { background: gray; }")
+        if t:
+            t.stop()
+        self.setStyleSheet("""
+            QMainWindow {
+                background: #f5f5f5;   /* 옅은 회색 */
+            }
+        """)
+
 
     def enter_landing_mode(self):
         self._main.setCurrentIndex(0)
+        if hasattr(self, "_landing_status") and self._landing_status:
+            self._landing_status.setText("· · ·   접속자 대기 중   · · ·")
+            self._landing_status.setStyleSheet("color: #6b7280;")
         t = getattr(self, "_status_timer", None)
-        if t: t.start(600)
+        if t:
+            t.start(600)
         self.setStyleSheet("""
             QMainWindow {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
@@ -104,7 +116,8 @@ class ReceiverWindow(QtWidgets.QMainWindow):
                     stop:1   rgba(255,143,107,13)
                 );
             }
-        """)        
+        """)
+    
 
 
     def _build_landing_card(self):
@@ -112,7 +125,6 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         root = QtWidgets.QVBoxLayout(wrapper)
         root.setAlignment(QtCore.Qt.AlignCenter)
 
-        # 카드(정사각, 라운드, 테두리만)
         card = QtWidgets.QFrame(objectName="card")
         card.setStyleSheet("""
             QFrame#card {
@@ -127,7 +139,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         c.setContentsMargins(32, 40, 32, 40)  # ⬆️⬇️ 위/아래 여백 증가
         c.setSpacing(0)
 
-        # ── 중앙 M 라벨 ──
+
         c.addStretch(1)
         logo = QtWidgets.QLabel("M")
         logo.setAlignment(QtCore.Qt.AlignCenter)
@@ -140,7 +152,6 @@ class ReceiverWindow(QtWidgets.QMainWindow):
                 border-radius: 20px;
             }
         """)
-        # 로고 글로우(그림자)
         glow = QtWidgets.QGraphicsDropShadowEffect(logo)
         glow.setBlurRadius(32)
         glow.setOffset(0, 4)
@@ -148,13 +159,13 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         logo.setGraphicsEffect(glow)
 
         c.addWidget(logo, alignment=QtCore.Qt.AlignHCenter)
-        c.addSpacing(20)   # 로고와 텍스트 블록 사이 넉넉히
+        c.addSpacing(20)
         c.addStretch(1)
 
-        # ── 텍스트 블록 ──
+       
         tb = QtWidgets.QVBoxLayout()
         tb.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignHCenter)
-        tb.setSpacing(6)   # 제목-부제 간격은 조금만
+        tb.setSpacing(6) 
 
         title = QtWidgets.QLabel("Multiplexer")
         title.setAlignment(QtCore.Qt.AlignCenter)
@@ -168,9 +179,8 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         subtitle.setStyleSheet("color: #6b7280;")
         tb.addWidget(subtitle)
 
-        tb.addSpacing(24)  # 부제 ↔ 상태 문구 사이 더 띄움
+        tb.addSpacing(24) 
 
-        # 상태 문구(이것만 애니메이션)
         self._landing_status = QtWidgets.QLabel("· · ·  접속자 대기 중  · · ·")
         self._landing_status.setAlignment(QtCore.Qt.AlignCenter)
         self._landing_status.setFont(QtGui.QFont("Inter", 13))
@@ -178,14 +188,14 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         tb.addWidget(self._landing_status)
 
         c.addLayout(tb)
-        c.addStretch(1)  # ⬇️ 상태 문구 아래 공간 확보
+        c.addStretch(1)
         root.addWidget(card)
 
         self._dots = 0
         eff = QtWidgets.QGraphicsOpacityEffect(self._landing_status)
         self._landing_status.setGraphicsEffect(eff)
         self._status_opacity_effect = eff
-        self._fade_dir = 1   # opacity 증가/감소 방향
+        self._fade_dir = 1
 
         timer = QtCore.QTimer(self)
         timer.timeout.connect(self._tick)
@@ -196,12 +206,12 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         return wrapper
 
     def _tick(self):
-        # 점 순환
+        
         self._dots = (self._dots + 1) % 4
         dots = "· " * self._dots
         self._landing_status.setText(f"{dots}접속자 대기 중{dots}".center(17, " "))
 
-        # 페이드 인/아웃 (호흡)
+       
         if hasattr(self, "_status_opacity_effect"):
             cur = self._status_opacity_effect.opacity()
             step = 0.15 * self._fade_dir
