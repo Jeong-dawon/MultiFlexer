@@ -134,6 +134,8 @@ class MultiReceiverManager:
             if not sender_arr:
                 return
 
+            QtCore.QTimer.singleShot(0, self.ui.enter_sender_mode)
+
             for s in sender_arr:
                 sid = s.get('id')
                 name = s.get('name', sid)
@@ -194,7 +196,6 @@ class MultiReceiverManager:
                     self.ui.set_active_sender_name(sid, name or peer.sender_name)
                     peer.update_window_from_widget(w)
                     peer.resume_pipeline()  # 항상 PLAYING
-                    QtCore.QTimer.singleShot(0, self.ui.enter_sender_mode)
                 _qt(_show_now)
 
                 def _enter_single_mode_and_assign():
