@@ -166,7 +166,9 @@ class PeerReceiver:
 
     def pause_pipeline(self):
         """공유 중지 시 파이프라인 일시정지"""
-        self.share_active = False
+        if not ALWAYS_PLAYING:  # config.py에 전역 옵션 두기
+            self.share_active = False
+            self.pipeline.set_state(Gst.State.PAUSED)
         try:
             self.pipeline.set_state(Gst.State.PAUSED)
             print(f"[GST][{self.sender_name}] → PAUSED (share stopped)")
