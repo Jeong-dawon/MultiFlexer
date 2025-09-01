@@ -44,6 +44,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             }
         """)    
 
+        self._first_sender_connected = False 
 
         self._widgets = {}
         self._names = {}
@@ -295,14 +296,14 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         if (w is None) or _is_dead(w):
             w = QtWidgets.QWidget(self)
             w.setObjectName(f"video-{sender_id}")
-            w.setStyleSheet("background:black;")
             w.setFocusPolicy(QtCore.Qt.NoFocus)
             w.setAttribute(QtCore.Qt.WA_NativeWindow, True)
             _ = w.winId()  # 핸들 실체화
 
-            placeholder = QtWidgets.QVBoxLayout(w)
-            placeholder.setContentsMargins(0, 0, 0, 0)
-            placeholder.setAlignment(QtCore.Qt.AlignCenter)
+            # ✅ placeholder 항상 추가
+            layout = QtWidgets.QVBoxLayout(w)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setAlignment(QtCore.Qt.AlignCenter)
 
             icon = QtWidgets.QLabel()
             icon.setPixmap(self.style().standardIcon(
@@ -311,15 +312,16 @@ class ReceiverWindow(QtWidgets.QMainWindow):
 
             text = QtWidgets.QLabel("대기중")
             text.setAlignment(QtCore.Qt.AlignCenter)
-            text.setStyleSheet("color: black; font-size: 20px;")
+            text.setStyleSheet("color: black; font-size: 14px;")
 
-            placeholder.addWidget(icon)
-            placeholder.addWidget(text)
+            layout.addWidget(icon)
+            layout.addWidget(text)
 
             w.setStyleSheet("background: #e5e7eb;")
 
             self._widgets[sender_id] = w
             self._stack.addWidget(w)
+
 
         if sender_name:
             self._names[sender_id] = sender_name
