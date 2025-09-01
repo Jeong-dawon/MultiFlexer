@@ -134,7 +134,9 @@ class MultiReceiverManager:
             if not sender_arr:
                 return
 
-            QtCore.QTimer.singleShot(0, self.ui.enter_sender_mode)
+            if not self.ui._first_sender_connected:
+                self.ui._first_sender_connected = True
+                QtCore.QTimer.singleShot(0, self.ui.enter_sender_mode)
 
             for s in sender_arr:
                 sid = s.get('id')
@@ -316,6 +318,7 @@ class MultiReceiverManager:
                 self.ui._main.setCurrentIndex(0)
                 self.ui._stack.setCurrentWidget(self.ui._landing)
                 self.ui.enter_landing_mode()
+                self.ui._first_sender_connected = False 
             QtCore.QTimer.singleShot(0, _reset_to_landing)
 
 
