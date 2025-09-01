@@ -7,7 +7,6 @@ class Cell(QtWidgets.QFrame):
     clicked = QtCore.pyqtSignal()
     def __init__(self):
         super().__init__()
-        self.setStyleSheet("background:black;")
         self._layout = QtWidgets.QVBoxLayout(self)
         self._layout.setContentsMargins(0,0,0,0)
         self._layout.setSpacing(0)
@@ -78,11 +77,6 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         self._main.addWidget(self._grid_container)
         self._main.setCurrentIndex(0)  # 기본: 단일 모드
 
-        # placeholder
-        #self._placeholder = QtWidgets.QLabel("Waiting for senders...", alignment=QtCore.Qt.AlignCenter)
-        #self._placeholder.setStyleSheet("color:#888; font-size:18px;")
-        #self._stack.addWidget(self._placeholder)
-
 
         self._setup_shortcuts()
 
@@ -95,7 +89,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             t.stop()
         self.setStyleSheet("""
             QMainWindow {
-                background: #f5f5f5;   /* 옅은 회색 */
+                background: #f5f5f5;
             }
         """)
 
@@ -305,6 +299,25 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             w.setFocusPolicy(QtCore.Qt.NoFocus)
             w.setAttribute(QtCore.Qt.WA_NativeWindow, True)
             _ = w.winId()  # 핸들 실체화
+
+            placeholder = QtWidgets.QVBoxLayout(w)
+            placeholder.setContentsMargins(0, 0, 0, 0)
+            placeholder.setAlignment(QtCore.Qt.AlignCenter)
+
+            icon = QtWidgets.QLabel()
+            icon.setPixmap(self.style().standardIcon(
+                QtWidgets.QStyle.SP_ComputerIcon).pixmap(64, 64))
+            icon.setAlignment(QtCore.Qt.AlignCenter)
+
+            text = QtWidgets.QLabel("대기중")
+            text.setAlignment(QtCore.Qt.AlignCenter)
+            text.setStyleSheet("color: black; font-size: 14px;")
+
+            placeholder.addWidget(icon)
+            placeholder.addWidget(text)
+
+            w.setStyleSheet("background: #e5e7eb;")
+
             self._widgets[sender_id] = w
             self._stack.addWidget(w)
 
