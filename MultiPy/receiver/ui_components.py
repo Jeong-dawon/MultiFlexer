@@ -86,6 +86,26 @@ class ReceiverWindow(QtWidgets.QMainWindow):
 
         self._setup_shortcuts()
 
+    def enter_sender_mode(self):
+        self._main.setCurrentIndex(1)
+        t = getattr(self, "_status_timer", None)
+        if t: t.stop()
+        self.setStyleSheet("QMainWindow { background: gray; }")
+
+    def enter_landing_mode(self):
+        self._main.setCurrentIndex(0)
+        t = getattr(self, "_status_timer", None)
+        if t: t.start(600)
+        self.setStyleSheet("""
+            QMainWindow {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0   rgba(4,210,175,13),
+                    stop:0.5 rgba(96,170,255,13),
+                    stop:1   rgba(255,143,107,13)
+                );
+            }
+        """)        
+
 
     def _build_landing_card(self):
         wrapper = QtWidgets.QWidget()
