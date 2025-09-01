@@ -3,40 +3,6 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 from config import DEFAULT_WINDOW_SIZE, WINDOW_TITLE
 
 
-class InfoPopup(QtWidgets.QFrame):
-    def __init__(self, parent=None):
-        super().__init__(parent, flags=(
-            QtCore.Qt.FramelessWindowHint
-            | QtCore.Qt.Tool
-            | QtCore.Qt.WindowStaysOnTopHint
-            | QtCore.Qt.WindowDoesNotAcceptFocus
-        ))
-        self.setAttribute(QtCore.Qt.WA_TranslucentBackground, True)
-        self.setFocusPolicy(QtCore.Qt.NoFocus)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        self._label = QtWidgets.QLabel("", self)
-        self._label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-        self._label.setStyleSheet("color:white; font-size:16px; padding:10px;")
-        self.setStyleSheet("QFrame { background:rgba(0,0,0,160); border-radius:10px; }")
-        lay = QtWidgets.QHBoxLayout(self)
-        lay.setContentsMargins(8, 6, 8, 6)
-        lay.addWidget(self._label)
-
-    def set_text(self, text: str):
-        self._label.setText(text)
-        self.adjustSize()
-
-    def show_at_parent_corner(self, parent: QtWidgets.QWidget, margin: int = 16):
-        try:
-            top_left = parent.mapToGlobal(QtCore.QPoint(margin, margin))
-        except Exception:
-            top_left = QtCore.QPoint(margin, margin)
-        self.move(top_left)
-        self.show()
-
-
 class Cell(QtWidgets.QFrame):
     clicked = QtCore.pyqtSignal()
     def __init__(self):
@@ -69,6 +35,16 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         super().__init__()
         self.setWindowTitle("WebRTC Receiver")
         self.resize(1280, 720)
+        self.setStyleSheet("""
+            QMainWindow {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0   rgba(240, 248, 255, 255),
+                stop:0.5 rgba(230, 240, 250, 255),
+                stop:1   rgba(250, 245, 250, 255)
+                );
+            }
+        """)    
+
 
         self._widgets = {}
         self._names = {}
@@ -80,13 +56,16 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         self._central = QtWidgets.QWidget()
         self.setCentralWidget(self._central)
         self._main = QtWidgets.QStackedLayout(self._central)  # ← 메인은 스택형
+        
 
         # stack 컨테이너
         self._stack_container = QtWidgets.QWidget()
         self._stack = QtWidgets.QStackedLayout(self._stack_container)
-        self._placeholder = QtWidgets.QLabel("영상 수신할 sender 선택", alignment=QtCore.Qt.AlignCenter)
-        self._placeholder.setStyleSheet("color:#888; font-size:18px;")
-        self._stack.addWidget(self._placeholder)
+
+        landing = self._build_landing_card()
+        self._stack.addWidget(landing)
+        self._stack.setCurrentWidget(landing)
+        self._landing = landing
 
         # grid 컨테이너
         self._grid_container = QtWidgets.QWidget()
@@ -104,68 +83,114 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         #self._placeholder.setStyleSheet("color:#888; font-size:18px;")
         #self._stack.addWidget(self._placeholder)
 
-        self._info_popup = InfoPopup(self)
-        self._info_popup.hide()
 
         self._setup_shortcuts()
 
-# 랜딩 카드 빌더
+
     def _build_landing_card(self):
         wrapper = QtWidgets.QWidget()
-        root = QVBoxLayout(wrapper)
-        root.setAlignment(Qt.AlignCenter)
+        root = QtWidgets.QVBoxLayout(wrapper)
+        root.setAlignment(QtCore.Qt.AlignCenter)
 
-        card = QFrame(objectName="card")
+        # 카드(정사각, 라운드, 테두리만)
+        card = QtWidgets.QFrame(objectName="card")
         card.setStyleSheet("""
             QFrame#card {
                 background: white;
                 border-radius: 24px;
                 border: 1px solid #e5e7eb;
-                padding: 40px 56px;
             }
         """)
-        c = QVBoxLayout(card); c.setAlignment(Qt.AlignCenter); c.setSpacing(16)
+        card.setFixedSize(360, 360)
 
-        logo = QLabel("M"); logo.setAlignment(Qt.AlignCenter)
+        c = QtWidgets.QVBoxLayout(card)
+        c.setContentsMargins(32, 40, 32, 40)  # ⬆️⬇️ 위/아래 여백 증가
+        c.setSpacing(0)
+
+        # ── 중앙 M 라벨 ──
+        c.addStretch(1)
+        logo = QtWidgets.QLabel("M")
+        logo.setAlignment(QtCore.Qt.AlignCenter)
+        logo.setFixedSize(96, 96)
         logo.setStyleSheet("""
             QLabel {
                 background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
                                             stop:0 #04d2af, stop:1 #60aaff);
-                color: white; font-size: 32px; font-weight: 700;
-                border-radius: 20px; min-width: 80px; min-height: 80px;
+                color: white; font-size: 36px; font-weight: 700;
+                border-radius: 20px;
             }
         """)
-        c.addWidget(logo)
+        # 로고 글로우(그림자)
+        glow = QtWidgets.QGraphicsDropShadowEffect(logo)
+        glow.setBlurRadius(32)
+        glow.setOffset(0, 4)
+        glow.setColor(QtGui.QColor(4, 210, 175, int(0.4 * 255)))
+        logo.setGraphicsEffect(glow)
 
-        title = QLabel("Multiplexer")
-        title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("Inter", 28, QFont.DemiBold))
+        c.addWidget(logo, alignment=QtCore.Qt.AlignHCenter)
+        c.addSpacing(20)   # 로고와 텍스트 블록 사이 넉넉히
+        c.addStretch(1)
+
+        # ── 텍스트 블록 ──
+        tb = QtWidgets.QVBoxLayout()
+        tb.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignHCenter)
+        tb.setSpacing(6)   # 제목-부제 간격은 조금만
+
+        title = QtWidgets.QLabel("Multiplexer")
+        title.setAlignment(QtCore.Qt.AlignCenter)
+        title.setFont(QtGui.QFont("Inter", 24, QtGui.QFont.DemiBold))
         title.setStyleSheet("color: #34a6ff;")
-        c.addWidget(title)
+        tb.addWidget(title)
 
-        subtitle = QLabel("화면 공유 시스템")
-        subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setFont(QFont("Inter", 14))
+        subtitle = QtWidgets.QLabel("화면 공유 시스템")
+        subtitle.setAlignment(QtCore.Qt.AlignCenter)
+        subtitle.setFont(QtGui.QFont("Inter", 13))
         subtitle.setStyleSheet("color: #6b7280;")
-        c.addWidget(subtitle)
+        tb.addWidget(subtitle)
 
-        self._landing_status = QLabel("· · ·   접속자 대기 중   · · ·")
-        self._landing_status.setAlignment(Qt.AlignCenter)
-        self._landing_status.setFont(QFont("Inter", 14))
-        self._landing_status.setStyleSheet("color: #9aa3af; margin-top: 8px;")
-        c.addWidget(self._landing_status)
+        tb.addSpacing(24)  # 부제 ↔ 상태 문구 사이 더 띄움
 
-        # 간단한 점 점점점 애니메이션 (선택)
-        self._dots = 0
-        t = QTimer(self); t.timeout.connect(self._tick); t.start(600)
+        # 상태 문구(이것만 애니메이션)
+        self._landing_status = QtWidgets.QLabel("· · ·  접속자 대기 중  · · ·")
+        self._landing_status.setAlignment(QtCore.Qt.AlignCenter)
+        self._landing_status.setFont(QtGui.QFont("Inter", 13))
+        self._landing_status.setStyleSheet("color: #6b7280;")
+        tb.addWidget(self._landing_status)
 
+        c.addLayout(tb)
+        c.addStretch(1)  # ⬇️ 상태 문구 아래 공간 확보
         root.addWidget(card)
+
+        self._dots = 0
+        eff = QtWidgets.QGraphicsOpacityEffect(self._landing_status)
+        self._landing_status.setGraphicsEffect(eff)
+        self._status_opacity_effect = eff
+        self._fade_dir = 1   # opacity 증가/감소 방향
+
+        timer = QtCore.QTimer(self)
+        timer.timeout.connect(self._tick)
+        timer.start(600)
+        self._status_timer = timer
+
+
         return wrapper
 
     def _tick(self):
+        # 점 순환
         self._dots = (self._dots + 1) % 4
         dots = "· " * self._dots
         self._landing_status.setText(f"{dots}접속자 대기 중{dots}".center(17, " "))
+
+        # 페이드 인/아웃 (호흡)
+        if hasattr(self, "_status_opacity_effect"):
+            cur = self._status_opacity_effect.opacity()
+            step = 0.15 * self._fade_dir
+            new = cur + step
+            if new >= 1.0:
+                new, self._fade_dir = 1.0, -1
+            elif new <= 0.5:
+                new, self._fade_dir = 0.5, +1
+        self._status_opacity_effect.setOpacity(new)
 
     # ===== 표시 모드 전환 =====
     def set_landing_visible(self, on: bool):
@@ -263,7 +288,8 @@ class ReceiverWindow(QtWidgets.QMainWindow):
     def set_active_sender(self, sender_id: str):
         self._current_sender_id = sender_id
         w = self._widgets.get(sender_id)
-        self._stack.setCurrentWidget(w if w else self._placeholder)
+        self._stack.setCurrentWidget(w if w else self._landing)
+
 
     def set_active_sender_name(self, sender_id: str, sender_name: str):
         if sender_name:
@@ -279,9 +305,9 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             w.deleteLater()
         if self._current_sender_id == sender_id:
             self._current_sender_id = None
-            self._stack.setCurrentWidget(self._placeholder)
+            self._stack.setCurrentWidget(self._landing)
             self.hide_sender_info_popup()
-
+            
     def show_sender_info_popup(self):
         sid = self._current_sender_id
         if sid:
