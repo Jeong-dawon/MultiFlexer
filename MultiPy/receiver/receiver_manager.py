@@ -76,6 +76,7 @@ class MultiReceiverManager:
                 try:
                     if self.view_manager and 0 <= idx < len(self.view_manager.cells):
                         self.view_manager.cells[idx].clear()
+                        self.ui.show_placeholder(sid)
                 except Exception:
                     pass
                 self._cell_assign.pop(idx, None)
@@ -84,6 +85,7 @@ class MultiReceiverManager:
         prev_sid = self._cell_assign.get(cell_index)
         if prev_sid and prev_sid != sender_id:
             self._cell_assign.pop(cell_index, None)
+            self.ui.show_placeholder(prev_sid)
 
         # UI 스레드에서 위젯 배치
         def _ensure_and_put():
@@ -94,6 +96,7 @@ class MultiReceiverManager:
                 except Exception:
                     pass
                 self.view_manager.cells[cell_index].put_widget(w)
+                self.ui.show_video(sender_id) 
 
                 if not w.isVisible():
                     w.show()
@@ -235,6 +238,7 @@ class MultiReceiverManager:
                     try:
                         if self.view_manager and 0 <= idx < len(self.view_manager.cells):
                             self.view_manager.cells[idx].clear()
+                            self.ui.show_placeholder(sid)
                     except Exception:
                         pass
                     self._cell_assign.pop(idx, None)
@@ -304,6 +308,7 @@ class MultiReceiverManager:
                 try:
                     if self.view_manager and 0 <= idx < len(self.view_manager.cells):
                         self.view_manager.cells[idx].clear()
+                        self.ui.show_placeholder(sid)
                 except Exception:
                     pass
                 self._cell_assign.pop(idx, None)
