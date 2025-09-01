@@ -32,7 +32,7 @@ def main():
     
     # UI 윈도우 생성 및 표시
     ui = ReceiverWindow()
-    ui.show()
+    ui.showFullScreen() #FullScreen
     
     ui.activateWindow()
     ui.raise_()
