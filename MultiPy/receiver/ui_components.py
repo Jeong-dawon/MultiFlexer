@@ -109,6 +109,68 @@ class ReceiverWindow(QtWidgets.QMainWindow):
 
         self._setup_shortcuts()
 
+# 랜딩 카드 빌더
+    def _build_landing_card(self):
+        wrapper = QtWidgets.QWidget()
+        root = QVBoxLayout(wrapper)
+        root.setAlignment(Qt.AlignCenter)
+
+        card = QFrame(objectName="card")
+        card.setStyleSheet("""
+            QFrame#card {
+                background: white;
+                border-radius: 24px;
+                border: 1px solid #e5e7eb;
+                padding: 40px 56px;
+            }
+        """)
+        c = QVBoxLayout(card); c.setAlignment(Qt.AlignCenter); c.setSpacing(16)
+
+        logo = QLabel("M"); logo.setAlignment(Qt.AlignCenter)
+        logo.setStyleSheet("""
+            QLabel {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+                                            stop:0 #04d2af, stop:1 #60aaff);
+                color: white; font-size: 32px; font-weight: 700;
+                border-radius: 20px; min-width: 80px; min-height: 80px;
+            }
+        """)
+        c.addWidget(logo)
+
+        title = QLabel("Multiplexer")
+        title.setAlignment(Qt.AlignCenter)
+        title.setFont(QFont("Inter", 28, QFont.DemiBold))
+        title.setStyleSheet("color: #34a6ff;")
+        c.addWidget(title)
+
+        subtitle = QLabel("화면 공유 시스템")
+        subtitle.setAlignment(Qt.AlignCenter)
+        subtitle.setFont(QFont("Inter", 14))
+        subtitle.setStyleSheet("color: #6b7280;")
+        c.addWidget(subtitle)
+
+        self._landing_status = QLabel("· · ·   접속자 대기 중   · · ·")
+        self._landing_status.setAlignment(Qt.AlignCenter)
+        self._landing_status.setFont(QFont("Inter", 14))
+        self._landing_status.setStyleSheet("color: #9aa3af; margin-top: 8px;")
+        c.addWidget(self._landing_status)
+
+        # 간단한 점 점점점 애니메이션 (선택)
+        self._dots = 0
+        t = QTimer(self); t.timeout.connect(self._tick); t.start(600)
+
+        root.addWidget(card)
+        return wrapper
+
+    def _tick(self):
+        self._dots = (self._dots + 1) % 4
+        dots = "· " * self._dots
+        self._landing_status.setText(f"{dots}접속자 대기 중{dots}".center(17, " "))
+
+    # ===== 표시 모드 전환 =====
+    def set_landing_visible(self, on: bool):
+        self._main.setCurrentIndex(0 if on else 1)
+
     def set_mode(self, use_grid: bool):
         """stack <-> grid 전환 (레이아웃 파괴 금지)"""
         self._main.setCurrentIndex(1 if use_grid else 0)
