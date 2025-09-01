@@ -301,7 +301,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             icon = QtWidgets.QLabel()
             icon.setPixmap(self.style().standardIcon(
                 QtWidgets.QStyle.SP_ComputerIcon).pixmap(64, 64))
-            text = QtWidgets.QLabel("선택된 영상 없음")
+            text = QtWidgets.QLabel("대기중")
             text.setAlignment(QtCore.Qt.AlignCenter)
             text.setStyleSheet("color: black; font-size: 14px;")
             layout.addWidget(icon)
@@ -311,6 +311,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             # ✅ 비디오 출력용 위젯
             video_widget = QtWidgets.QWidget(self)
             video_widget.setObjectName(f"video-{sender_id}")
+            video_widget.setFocusPolicy(QtCore.Qt.NoFocus)
             video_widget.setAttribute(QtCore.Qt.WA_NativeWindow, True)
             _ = video_widget.winId()
             video_widget.setStyleSheet("background: black;")
@@ -328,34 +329,39 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             self._names[sender_id] = sender_name
         return self._widgets[sender_id]
 
-    def show_placeholder(self, sender_id: str):
-        container = self._widgets.get(sender_id)
-        if isinstance(container, QtWidgets.QStackedWidget):
-            container.setCurrentIndex(0)
-
-    def show_video(self, sender_id: str):
-        container = self._widgets.get(sender_id)
-        if isinstance(container, QtWidgets.QStackedWidget):
-            container.setCurrentIndex(1)
-
-    def get_video_widget(self, sender_id: str):
-        container = self._widgets.get(sender_id)
-        if isinstance(container, QtWidgets.QStackedWidget) and container.count() >= 2:
-            return container.widget(1)  # index 1 = video
-        return None
 
     def get_widget(self, sender_id: str):
         return self._widgets.get(sender_id)
 
     def set_active_sender(self, sender_id: str):
         self._current_sender_id = sender_id
-        container = self._widgets.get(sender_id)
+        w = self._widgets.get(sender_id)
 
-        if container:
-            container.setCurrentIndex(1)
-            self._stack.setCurrentWidget(container)
+        if w:
+            self._stack.setCurrentWidget(w)
         else:
-            self._stack.setCurrentWidget(self._landing)
+            # ✅ sender 없으면 placeholder 위젯 생성/표시
+            placeholder = QtWidgets.QWidget(self)
+            layout = QtWidgets.QVBoxLayout(placeholder)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setAlignment(QtCore.Qt.AlignCenter)
+
+            icon = QtWidgets.QLabel()
+            icon.setPixmap(self.style().standardIcon(
+                QtWidgets.QStyle.SP_ComputerIcon).pixmap(64, 64))
+            icon.setAlignment(QtCore.Qt.AlignCenter)
+
+            text = QtWidgets.QLabel("대기중")
+            text.setAlignment(QtCore.Qt.AlignCenter)
+            text.setStyleSheet("color: black; font-size: 20px;")
+
+            layout.addWidget(icon)
+            layout.addWidget(text)
+            placeholder.setStyleSheet("background: #e5e7eb;")
+
+            self._stack.addWidget(placeholder)
+            self._stack.setCurrentWidget(placeholder)
+
 
     def set_active_sender_name(self, sender_id: str, sender_name: str):
         if sender_name:
