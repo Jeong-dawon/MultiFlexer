@@ -194,6 +194,7 @@ class MultiReceiverManager:
                     self.ui.set_active_sender_name(sid, name or peer.sender_name)
                     peer.update_window_from_widget(w)
                     peer.resume_pipeline()  # 항상 PLAYING
+                    QtCore.QTimer.singleShot(0, lambda: self.ui.set_landing_visible(False))
                 _qt(_show_now)
 
                 def _enter_single_mode_and_assign():
@@ -308,6 +309,9 @@ class MultiReceiverManager:
 
         GLib.idle_add(self.ui.remove_sender_widget, sid)
         self._notify_mqtt_change()     
+
+        if not self.peers:
+            QtCore.QTimer.singleShot(0, lambda: self.ui.set_landing_visible(True))
 
 # ---------- 상태 조회 메서드들 ----------
     
