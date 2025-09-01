@@ -200,15 +200,18 @@ class MultiReceiverManager:
                     peer.resume_pipeline()  # 항상 PLAYING
                 _qt(_show_now)
 
-                def _enter_single_mode_and_assign():
-                    if self.view_manager and self.view_manager.mode != 1:
-                        self.view_manager.set_mode(1)
-                    def _try_assign():
-                        if not self.view_manager or not self.view_manager.cells:
-                            QtCore.QTimer.singleShot(0, _try_assign)
-                            return
-                        self.assign_sender_to_cell(0, sid)
-                    QtCore.QTimer.singleShot(0, _try_assign)
+                def _try_assign():
+                    if not self.view_manager or not self.view_manager.cells:
+                        QtCore.QTimer.singleShot(0, _try_assign)
+                        return
+                    self.assign_sender_to_cell(0, sid)
+
+                    container = self.ui._widgets.get(sid)
+                    if container:
+                        container.setCurrentIndex(1)
+
+                QtCore.QTimer.singleShot(0, _try_assign)
+
 
                 QtCore.QTimer.singleShot(50, _enter_single_mode_and_assign)
             else:

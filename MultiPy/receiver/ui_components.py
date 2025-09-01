@@ -301,7 +301,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             icon = QtWidgets.QLabel()
             icon.setPixmap(self.style().standardIcon(
                 QtWidgets.QStyle.SP_ComputerIcon).pixmap(64, 64))
-            text = QtWidgets.QLabel("대기중")
+            text = QtWidgets.QLabel("선택된 영상 없음")
             text.setAlignment(QtCore.Qt.AlignCenter)
             text.setStyleSheet("color: black; font-size: 14px;")
             layout.addWidget(icon)
@@ -311,7 +311,6 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             # ✅ 비디오 출력용 위젯
             video_widget = QtWidgets.QWidget(self)
             video_widget.setObjectName(f"video-{sender_id}")
-            video_widget.setFocusPolicy(QtCore.Qt.NoFocus)
             video_widget.setAttribute(QtCore.Qt.WA_NativeWindow, True)
             _ = video_widget.winId()
             video_widget.setStyleSheet("background: black;")
@@ -338,11 +337,9 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         container = self._widgets.get(sender_id)
 
         if container:
-            # ✅ 영상 위젯으로 전환
             container.setCurrentIndex(1)
             self._stack.setCurrentWidget(container)
         else:
-            # sender가 없으면 랜딩 카드로 복귀
             self._stack.setCurrentWidget(self._landing)
 
     def set_active_sender_name(self, sender_id: str, sender_name: str):
