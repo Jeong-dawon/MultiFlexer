@@ -161,10 +161,40 @@ class ViewModeManager(QtCore.QObject):
     def _set_focus(self, idx: int):
         self.focus_index = idx
         for i, cell in enumerate(self.cells):
-            cell.setStyleSheet(
-                "background:black; border: 3px solid #66aaff;" if i == idx
-                else "background:black; border:none;"
-            )
+            cell.setStyleSheet("""
+                QFrame {
+                    background: white;
+                    border: 1px solid black;
+                }
+            """)
+            placeholder = QtWidgets.QWidget(cell)
+            placeholder.setStyleSheet("background: transparent; border: none;")
+            layout = QtWidgets.QVBoxLayout(placeholder)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setAlignment(QtCore.Qt.AlignCenter)
+
+            # 아이콘 (PNG 불러오기)
+            icon_label = QtWidgets.QLabel()
+            pixmap = QtGui.QPixmap("icons/person.png").scaled(90, 90, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            icon_label.setPixmap(pixmap)
+            icon_label.setAlignment(QtCore.Qt.AlignCenter)
+
+            # 텍스트
+            text_label = QtWidgets.QLabel("· · ·  대기 중  · · ·")
+            text_label.setAlignment(QtCore.Qt.AlignCenter)
+            text_label.setStyleSheet("""
+                QLabel {
+                    color: #6b7280;
+                    font-size: 22px;
+                    font-weight: bold;
+                }
+            """)
+
+            layout.addWidget(icon_label)
+            layout.addSpacing(8)
+            layout.addWidget(text_label)
+
+            cell.put_widget(placeholder)
 
     def _open_sender_picker(self):
         if not self._senders_provider:

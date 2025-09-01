@@ -240,7 +240,6 @@ shareStopBtn.style.display = 'none';
 enterBtn.addEventListener('click', async () => {
   const name = document.getElementById('senderName').value.trim();
   if (!name) return alert('이름 입력!');
-  if (!name) return alert('이름 입력!');
 
   enterBtn.disabled = true;
 
