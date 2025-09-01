@@ -85,34 +85,38 @@ class MultiReceiverManager:
         prev_sid = self._cell_assign.get(cell_index)
         if prev_sid and prev_sid != sender_id:
             self._cell_assign.pop(cell_index, None)
-            self.ui.show_placeholder(prev_sid)
 
         # UI 스레드에서 위젯 배치
         def _ensure_and_put():
-            w = self.ui.ensure_widget(sender_id, target.sender_name)
-            if w and self.view_manager and 0 <= cell_index < len(self.view_manager.cells):
+            container = self.ui.ensure_widget(sender_id, target.sender_name)
+            if container and self.view_manager and 0 <= cell_index < len(self.view_manager.cells):
                 try:
-                    w.setParent(None)
+                    container.setParent(None)
                 except Exception:
                     pass
-                self.view_manager.cells[cell_index].put_widget(w)
-                self.ui.show_video(sender_id) 
 
-                if not w.isVisible():
-                    w.show()
+                # 셀에 컨테이너 넣기
+                self.view_manager.cells[cell_index].put_widget(container)
 
-                GLib.idle_add(target.update_window_from_widget, w)
+                # 비디오 페이지로 전환
+                self.ui.show_video(sender_id)
+
+                if not container.isVisible():
+                    container.show()
+
+                video_w = self.ui.get_video_widget(sender_id)
+                if video_w is not None:
+                    GLib.idle_add(target.update_window_from_widget, video_w)
 
                 from config import UI_OVERLAY_DELAY_MS
                 def _rebind():
-                    target.resume_pipeline()       # 항상 재생
+                    target.resume_pipeline()
                     target._force_overlay_handle()
                     return False
                 GLib.timeout_add(UI_OVERLAY_DELAY_MS, _rebind)
             return False
         GLib.idle_add(_ensure_and_put)
 
-        # 매핑 갱신
         self._cell_assign[cell_index] = sender_id
 
     # ----- 소켓 연결 -----
@@ -195,12 +199,16 @@ class MultiReceiverManager:
 
             if not self._cell_assign:
                 def _show_now():
-                    w = self.ui.ensure_widget(sid, name or peer.sender_name)
-                    if w and not w.isVisible():
-                        w.show()
+                    container = self.ui.ensure_widget(sid, name or peer.sender_name)
+                    if container and not container.isVisible():
+                        container.show()
+
                     self.ui.set_active_sender_name(sid, name or peer.sender_name)
-                    peer.update_window_from_widget(w)
-                    peer.resume_pipeline()  # 항상 PLAYING
+                    self.ui.show_video(sid)
+                    vw = self.ui.get_video_widget(sid)
+                    if vw is not None:
+                        peer.update_window_from_widget(vw)
+                    peer.resume_pipeline()  
                 _qt(_show_now)
 
                 def _try_assign():
@@ -215,8 +223,6 @@ class MultiReceiverManager:
 
                 QtCore.QTimer.singleShot(0, _try_assign)
 
-
-                QtCore.QTimer.singleShot(50, _enter_single_mode_and_assign)
             else:
                 peer.resume_pipeline()  # 항상 재생
 
@@ -243,7 +249,8 @@ class MultiReceiverManager:
                         pass
                     self._cell_assign.pop(idx, None)
 
-            GLib.idle_add(self.ui.remove_sender_widget, sid)
+            QtCore.QTimer.singleShot(0, lambda s=sid: self.ui.show_placeholder(s))
+
             print(f"[SIO] sender-share-stopped: {peer.sender_name}")
 
         @self.sio.on('signal')

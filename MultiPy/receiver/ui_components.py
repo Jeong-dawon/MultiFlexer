@@ -328,6 +328,21 @@ class ReceiverWindow(QtWidgets.QMainWindow):
             self._names[sender_id] = sender_name
         return self._widgets[sender_id]
 
+    def show_placeholder(self, sender_id: str):
+        container = self._widgets.get(sender_id)
+        if isinstance(container, QtWidgets.QStackedWidget):
+            container.setCurrentIndex(0)
+
+    def show_video(self, sender_id: str):
+        container = self._widgets.get(sender_id)
+        if isinstance(container, QtWidgets.QStackedWidget):
+            container.setCurrentIndex(1)
+
+    def get_video_widget(self, sender_id: str):
+        container = self._widgets.get(sender_id)
+        if isinstance(container, QtWidgets.QStackedWidget) and container.count() >= 2:
+            return container.widget(1)  # index 1 = video
+        return None
 
     def get_widget(self, sender_id: str):
         return self._widgets.get(sender_id)
