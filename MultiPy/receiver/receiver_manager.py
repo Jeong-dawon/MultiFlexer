@@ -312,7 +312,11 @@ class MultiReceiverManager:
         self._notify_mqtt_change()     
 
         if not self.peers:
-            QtCore.QTimer.singleShot(0, self.ui.enter_landing_mode)
+            def _reset_to_landing():
+                self.ui._main.setCurrentIndex(0)
+                self.ui._stack.setCurrentWidget(self.ui._landing)
+                self.ui.enter_landing_mode()
+            QtCore.QTimer.singleShot(0, _reset_to_landing)
 
 
 # ---------- 상태 조회 메서드들 ----------

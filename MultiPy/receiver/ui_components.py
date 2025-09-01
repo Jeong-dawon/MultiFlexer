@@ -311,7 +311,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
 
             text = QtWidgets.QLabel("대기중")
             text.setAlignment(QtCore.Qt.AlignCenter)
-            text.setStyleSheet("color: black; font-size: 14px;")
+            text.setStyleSheet("color: black; font-size: 20px;")
 
             placeholder.addWidget(icon)
             placeholder.addWidget(text)
@@ -331,7 +331,31 @@ class ReceiverWindow(QtWidgets.QMainWindow):
     def set_active_sender(self, sender_id: str):
         self._current_sender_id = sender_id
         w = self._widgets.get(sender_id)
-        self._stack.setCurrentWidget(w if w else self._landing)
+
+        if w:
+            self._stack.setCurrentWidget(w)
+        else:
+            # ✅ sender 없으면 placeholder 위젯 생성/표시
+            placeholder = QtWidgets.QWidget(self)
+            layout = QtWidgets.QVBoxLayout(placeholder)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setAlignment(QtCore.Qt.AlignCenter)
+
+            icon = QtWidgets.QLabel()
+            icon.setPixmap(self.style().standardIcon(
+                QtWidgets.QStyle.SP_ComputerIcon).pixmap(64, 64))
+            icon.setAlignment(QtCore.Qt.AlignCenter)
+
+            text = QtWidgets.QLabel("대기중")
+            text.setAlignment(QtCore.Qt.AlignCenter)
+            text.setStyleSheet("color: black; font-size: 20px;")
+
+            layout.addWidget(icon)
+            layout.addWidget(text)
+            placeholder.setStyleSheet("background: #e5e7eb;")
+
+            self._stack.addWidget(placeholder)
+            self._stack.setCurrentWidget(placeholder)
 
 
     def set_active_sender_name(self, sender_id: str, sender_name: str):
