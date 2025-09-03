@@ -32,7 +32,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MultiFlexer")
+        self.setWindowTitle("Multiplexer")
         self.resize(1280, 720)
         self.setStyleSheet("""
             QMainWindow {
