@@ -48,3 +48,9 @@ coverage/
 # =======================================
 Thumbs.db
 package-lock.json
+
+# Config 파일 무시
+config.json
+
+# 인증서 키 파일 무시
+*.pem
