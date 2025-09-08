@@ -22,7 +22,7 @@
 
 > 본 프로젝트는 이러한 현실적인 불편함을 해소하고자, WebRTC의 P2P 통신 기술을 기반으로 별도의 설치 없이 브라우저에서 바로 실행 가능한 실시간 화면 공유 시스템을 구현하는 것을 목표로 한다. 클라이언트는 자신의 화면을 손쉽게 공유하고, 와이파이 기능을 가진 임베디드 장치(Multiplxer라 호칭)에 실시간 디스플레이 공유가 가능하며, 관리자가 이를 제어할 수 있는 구조로, 발표 전환을 유연하게 하고 협업의 집중도를 높일 수 있는 환경을 제공한다.
 
-<img src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/%E1%84%80%E1%85%A2%E1%84%87%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A2%E1%84%8B%E1%85%AD0.png" width="390"> <img src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/%E1%84%80%E1%85%A2%E1%84%87%E1%85%A1%E1%86%AF%20%E1%84%86%E1%85%A9%E1%86%A8%E1%84%91%E1%85%AD.png" width="400">
+<img width="300" src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/%E1%84%80%E1%85%A2%E1%84%87%E1%85%A1%E1%86%AF%E1%84%80%E1%85%A2%E1%84%8B%E1%85%AD0.png"> <img width="310" src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/%E1%84%80%E1%85%A2%E1%84%87%E1%85%A1%E1%86%AF%20%E1%84%86%E1%85%A9%E1%86%A8%E1%84%91%E1%85%AD.png">
 
 * HDMI 케이블 교체 없이 **즉시** 화면 전환
 * Wifi 통신으로 Multiplexer와 클라이언트 간 **무선 연결**
@@ -49,14 +49,14 @@
   * UHD/FHD/HD 디스플레이 지원
   * Wi-Fi AP로 네트워크 공유 환경 제공
  
-<img src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/Jetson%20Orin%20NX%20Super.png">
+<img width="400" src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/Jetson%20Orin%20NX%20Super.png">
     
 * 클라이언트
   * Wi-Fi 연결이 가능한 모든 PC, 노트북
   * 운영체제 관계 없이 브라우저만으로 연결
 
 #### 2. 소프트웨어 구성
-<img src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/%E1%84%89%E1%85%A9%E1%84%91%E1%85%B3%E1%84%90%E1%85%B3%E1%84%8B%E1%85%B0%E1%84%8B%E1%85%A5%20%E1%84%80%E1%85%AE%E1%84%89%E1%85%A5%E1%86%BC.png">
+<img width="600" src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/%E1%84%89%E1%85%A9%E1%84%91%E1%85%B3%E1%84%90%E1%85%B3%E1%84%8B%E1%85%B0%E1%84%8B%E1%85%A5%20%E1%84%80%E1%85%AE%E1%84%89%E1%85%A5%E1%86%BC.png">
 
 * **Multiplexer**: Ubuntu Linux에서 WebRTC로 화면 스트림을 수신하며 하드웨어 디코더를 이용해서 빠르게 영상 수신 및 출력
   * WebRTC 시그널링 서버: 화면 전송 클라이언트와 GStreamer 프레임워크 간 연결
@@ -70,7 +70,7 @@
   * 관리자: 관리자 웹 페이지에 접속하여 화면 분할, 레이아웃 변경, 클라이언트 화면 배치 관리
 
 #### 3. 클라이언트와 Multiplexer 간 WebRTC 시그널링 및 P2P 연결
-<img src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/P2P.png">
+<img width="600" src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/P2P.png">
 
 1) 화면을 공유할 클라이언트가 웹 페이지에 접속하여 화면 공유 시작
 2) WebRTC 시그널링 서버를 통해 연결 협상
@@ -78,7 +78,7 @@
 4) Webrtcbin 플러그인이 WebRTC 협상을 시작하여 P2P 연결 구축
 
 #### 4. GStreamer 프레임워크 상의 파이프라인 기반 실시간 화면 스트리밍
-<img src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/GStreamer.png">
+<img width="600" src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/GStreamer.png">
 
 1) 웹 브라우저에서 사용자 화면을 캡쳐하여 H.264로 실시간 인코딩
 2) 인코딩된 비디오를 RTP 패킷으로 Multiplexer에 전송
@@ -87,7 +87,7 @@
 5) 처리된 비디오를 PyQt5 위젯에 렌더링, HDMI 케이블로 연결된 디스플레이에 출력
 
 #### 5. MQTT 통신 기반 다중 사용자 화면 배치 제어
-<img src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/MQTT.png">
+<img width="600" src="https://github.com/Jeong-dawon/MultiFlexer/blob/master/src/MQTT.png">
 
 1) 관리자가 웹 페이지에 접속하여 MQTT 브로커와 연결
 2) 사용자 목록과 현재 화면 배치 상태를 실시간으로 수신
