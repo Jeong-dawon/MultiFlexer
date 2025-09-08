@@ -107,7 +107,7 @@
 
 * 화면 전송 클라이언트
   * client.html: 화면 전송 클라이언트 페이지 - 이름 입력 UI 및 화면 공유 시작 인터페이스
-  * client.js: 화면 공유 WebRTC 클라이언트 - 화면 캡쳐, H.264 인코딩, RTP ㅈㅓㄴㅅㅗㅇ
+  * client.js: 화면 공유 WebRTC 클라이언트 - 화면 캡쳐, H.264 인코딩, RTP 전송
  
 * 화면 관리 클라이언트
   * administor.html: 화면 관리 클라이언트 페이지 - 참여자 목록 표시 및 Drag&Drop UI
