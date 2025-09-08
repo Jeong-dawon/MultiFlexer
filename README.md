@@ -115,7 +115,7 @@
 > 키 포인트: **WebRTC P2P**, **GStreamer 디코딩**, **MQTT 동기화**, **PyQt5 UI**, **Google STT API 연동**
 
 <details>
-<summary><b>Multiplexer</b> (클라이언트 화면 수신/배치)</summary><br>
+<summary><b>Multiplexer (클라이언트 화면 수신/배치)</b></summary><br>
 
 - `signalingServer.js` — **WebRTC 시그널링 서버**: Offer/Answer SDP 교환 및 ICE 후보 중계 처리  
 - `ui_components.py` — **PyQt5 UI 컴포넌트**: 메인 윈도우, 비디오 위젯, 레이아웃 관
