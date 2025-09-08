@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplexer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/css/enter.css">
+</head>
+
+<body>
+    <div class="main-container">
+        <div class="header">
+            <div class="logo">M</div>
+            <h1 class="title">Multiplexer</h1>
+            <p class="subtitle">화면 공유 시스템</p>
+        </div>
+
+        <div class="button-container">
+            <button id="shareBtn" class="main-button share-button">
+                <span class="button-icon">📺</span>
+                화면 공유하기
+            </button>
+            <button id="adminBtn" class="main-button admin-button">
+                <span class="button-icon">⚙️</span>
+                관리자 페이지
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("shareBtn").addEventListener("click", () => {
+            window.location.href = "/share";
+        });
+
+        document.getElementById("adminBtn").addEventListener("click", () => {
+            window.location.href = "/manage";
+        });
+
+        // 테마 토글 기능 (선택사항)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 't' || e.key === 'T') {
+                document.body.classList.toggle('light-mode');
+            }
+        });
+    </script>
+</body>
+
+</html>
