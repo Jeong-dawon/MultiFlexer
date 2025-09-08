@@ -2,13 +2,14 @@
 > 실시간 디스플레이 공유가 가능한 임베디드 소프트웨어
 ---
 
-## 🎥 시연 영상 
-### ▶️ [Watch on YouTube](https://youtube.com/watch?v=rJxngGRAIlM)
+### 🎥 시연 영상
+## ▶️ [Watch on YouTube](https://youtube.com/watch?v=rJxngGRAIlM)
+
 
 [![Video Title](https://img.youtube.com/vi/rJxngGRAIlM/0.jpg)](https://youtube.com/watch?v=rJxngGRAIlM)
 
----
 
+=======
 ## 📋 작품 설명
 
 ### 💬 개발 개요 
@@ -94,7 +95,7 @@
 5) Multiplexer가 PyQt5 UI에서 화면 분할 및 사용자 재배치
 6) Google Speech-to-Text로 사용자 음성 인식 시 해당 사용자 화면 자동 전환
 
----
+=======
 
 ### 📝 개발 프로그램 설명
 #### 1. 파일 구성
@@ -128,3 +129,58 @@
 * **하드웨어 코덱 우선 활용**으로 고성능 스트리밍 실현
 * **100% 소프트웨어** 기반으로 구현하여 전용 하드웨어 없이 즉시 사용 가능한 솔루션 제공
 * 임베디드 디바이스, 노트북, 데스크톱 등 **다양한 하드웨어에서 호환** 가능
+
+===
+
+
+## 🖥️ 개발 환경
+<span>
+  <img src="https://img.shields.io/badge/linux-%23FCC624.svg?&style=for-the-badge&logo=linux&logoColor=black" />
+  <img src="https://img.shields.io/badge/macos-%23000000.svg?&style=for-the-badge&logo=macos&logoColor=black" />
+  <img src="https://img.shields.io/badge/windows-%230078D6.svg?&style=for-the-badge&logo=windows&logoColor=white" />
+</span>
+
+## 🖥️ 개발 언어
+<span>
+  <img src="https://img.shields.io/badge/javascript-%23F7DF1E.svg?&style=for-the-badge&logo=javascript&logoColor=black" />
+  <img src="https://img.shields.io/badge/html-%23E34F26.svg?&style=for-the-badge&logo=html&logoColor=white" />
+  <img src="https://img.shields.io/badge/python-%233776AB.svg?&style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/css-%231572B6.svg?&style=for-the-badge&logo=css&logoColor=white" />
+</span>
+
+## 🖥️ 개발 도구 / 라이브러리
+<span>
+  <img src="https://img.shields.io/badge/mqtt-%23660066.svg?&style=for-the-badge&logo=mqtt&logoColor=white" />
+  <img src="https://img.shields.io/badge/gstreamer-%23FF3131.svg?&style=for-the-badge&logo=gstreamer&logoColor=white" />
+  <img src="https://img.shields.io/badge/webrtc-%23333333.svg?&style=for-the-badge&logo=webrtc&logoColor=white" />
+  <img src="https://img.shields.io/badge/flask-%233BABC3.svg?&style=for-the-badge&logo=flask&logoColor=white" />
+  <img src="https://img.shields.io/badge/socket.io-%23010101.svg?&style=for-the-badge&logo=socket.io&logoColor=white" />
+  <img src="https://img.shields.io/badge/node.js-%235FA04E.svg?&style=for-the-badge&logo=node.js&logoColor=white" />
+</span>
+
+
+=======
+
+### ✨ 프로젝트 시연 및 소개
+
+
+>아래는 Multiplexer를 활용한 데모 회의를 테스트 케이스로 삼아, 시스템의 전반적인 동작 과정과 기능을 효과적으로 시연하는 내용이 담겨 있다.
+
+##
+
+
+1. Multiplexer 앱 실행 시 초기 동작 과정
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/def7d549-735f-4f0f-8626-1b4d6888c3bf" />
+
+2. 사용자 페이지와 관리자 페이지의 동작 과정
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/ddb1f6a7-5462-4068-9374-26297c79bc04" />
+
+3. 관리자 페이지에서의 화면 분할 관리 동작 과정
+<img width="600" height="1210" alt="image" src="https://github.com/user-attachments/assets/4591a481-8399-49db-9d4a-04232159791f" />
+
+4. 모든 사용자 퇴장 시 Multiplexer 화면
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/d02ce24b-7f30-4b08-8550-55a790eb9517" />
+
+
+
+
