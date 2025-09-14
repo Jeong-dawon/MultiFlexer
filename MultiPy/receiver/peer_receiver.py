@@ -1,7 +1,7 @@
 # peer_receiver.py
 # WebRTC 피어 수신기 클래스
 
-import gi
+import gi, json
 
 gi.require_version('Gst', '1.0')
 gi.require_version('GstWebRTC', '1.0')
@@ -12,6 +12,7 @@ from gi.repository import Gst, GstWebRTC, GstSdp, GLib, GstVideo
 from PyQt5 import QtCore
 from gst_utils import _make, get_decoder_and_sink
 from config import STUN_SERVER, GST_VIDEO_CAPS, UI_OVERLAY_DELAY_MS, ICE_STATE_CHECK_DELAY_MS
+import time, sys
 
 class PeerReceiver:
     """WebRTC 피어 연결을 관리하는 수신기 클래스"""
@@ -31,6 +32,9 @@ class PeerReceiver:
         self.sender_id = sender_id
         self.sender_name = sender_name
         self.ui = ui_window
+        self.current_fps = 0.0
+        self.drop_rate = 0.0
+        self.avg_fps = 0.0
 
         # 콜백
         self._on_ready = on_ready  # 현재는 호출하지 않음
@@ -52,8 +56,46 @@ class PeerReceiver:
         # 공유 상태 플래그 (sender-share-started/stopped로 갱신)
         self.share_active = True
 
+        # 통계 관련 상태
+        self._byte_accum = 0
+        self._last_ts = time.time()
+        self._bitrate_mbps = 0.0
+        self._width = None
+        self._height = None
+
         # GStreamer 파이프라인 초기화
         self._setup_pipeline()
+
+        # 1초 주기 통계 tick
+        GLib.timeout_add(1000, self._stats_tick)
+
+    def _stats_tick(self):
+        try:
+            # 해상도 가져오기
+            if self._display_bin:
+                sink = self._display_bin.get_property("video-sink")
+                if sink:
+                    pad = sink.get_static_pad("sink")
+                    if pad:
+                        caps = pad.get_current_caps()
+                        if caps:
+                            s = caps.get_structure(0)
+                            self.width = s.get_value("width")
+                            self.height = s.get_value("height")
+
+            # Mbps 계산 (bitrate는 on_incoming_stream에서 identity나 rtpjitterbuffer 활용 가능)
+            mbps = self.bitrate / 1e6 if hasattr(self, "bitrate") else 0.0
+
+            print(f"[STATS][{self.sender_name}] "
+                f"FPS={self.current_fps:.2f}, "
+                f"drop={self.drop_rate:.2f}, "
+                f"avg={self.avg_fps:.2f}, "
+                f"Mbps={mbps:.2f}, "
+                f"res={getattr(self, 'width', '?')}x{getattr(self, 'height', '?')}")
+        except Exception as e:
+            print(f"[STATS][{self.sender_name}] stats_tick error:", e)
+
+        return True  # 타이머 계속 반복
 
     def update_window_from_widget(self, w):
         try:
@@ -315,34 +357,109 @@ class PeerReceiver:
 
         depay = _make("rtph264depay")
         parse = _make("h264parse")
-        decoder, conv, sink = get_decoder_and_sink()
+        decoder, conv, _ = get_decoder_and_sink()
 
         q = _make("queue")
         fpssink = _make("fpsdisplaysink")
+
+        # 🚩 여기서 OS별 싱크 생성
+        sink = None
+        if sys.platform.startswith("linux"):
+            # Jetson / 일반 Linux
+            sink = _make("nv3dsink") or _make("glimagesink")
+        elif sys.platform == "win32":
+            sink = _make("d3d11videosink")
+        elif sys.platform == "darwin":
+            sink = _make("glimagesink")
+
+        if sink:
+            sink.set_property("sync", False)              # 지연 방지
+            fpssink.set_property("video-sink", sink)      # fpsdisplaysink → 실제 싱크 연결
+
 
         # FPS 측정 싱크 설정
         if fpssink:
             fpssink.set_property("signal-fps-measurements", True)
             fpssink.set_property("text-overlay", False)
+            fpssink.set_property("sync", False)  # [MODIFIED] 측정만 하고 렌더링은 빠르게
             if sink:
-                fpssink.set_property("video-sink", sink)
-            fpssink.connect("fps-measurements",
-                lambda el, fps, drop, avg:
-                    print(f"[STATS][{self.sender_name}] FPS={fps:.2f}, drop={drop:.2f}, avg={avg:.2f}")
-            )
+                fpssink.set_property("video-sink", sink)  # [MODIFIED] 강제 지정
+            fpssink.connect("fps-measurements", self._on_fps_measurements)
 
         if not all([depay, parse, decoder, conv, q, fpssink]):
-            print(f"[RTC][{self.sender_name}] 요소 부족으로 링크 실패"); return
+            print(f"[RTC][{self.sender_name}] 요소 부족으로 링크 실패")
+            return
 
-        # 파이프라인 구성 (identity 제거)
+        # 파이프라인 구성
         for e in (depay, parse, decoder, conv, q, fpssink):
             self.pipeline.add(e)
             e.sync_state_with_parent()
 
-        # 링크
+        identity = _make("identity")
+        if identity:
+            identity.set_property("signal-handoffs", True)
+            identity.connect("handoff", self._on_rtp_handoff)
+
+        # 요소 추가
+        for e in (depay, identity, parse, decoder, conv, q, fpssink):
+            self.pipeline.add(e)
+            e.sync_state_with_parent()
+
+        # pad 링크
         if pad.link(depay.get_static_pad("sink")) != Gst.PadLinkReturn.OK:
-            print(f"[RTC][{self.sender_name}] pad link 실패"); return
-        depay.link(parse); parse.link(decoder); decoder.link(conv); conv.link(q); q.link(fpssink)
+            print(f"[RTC][{self.sender_name}] pad link 실패")
+            return
+
+        # 링크
+        depay.link(identity)
+        identity.link(parse)
+        parse.link(decoder)
+        decoder.link(conv)
+        conv.link(q)
+        q.link(fpssink)
+
+        # FPS 콜백 연결
+        fpssink.connect("fps-measurements", self._on_fps_measurements)
 
         self._display_bin = fpssink
         print(f"[OK][{self.sender_name}] Incoming video linked → {decoder.name}")
+
+    # ========== FPS 콜백 ==========
+    def _on_fps_measurements(self, element, fps, drop, avg):
+        self.current_fps = fps
+        self.drop_rate = drop
+        self.avg_fps = avg
+
+        # 해상도
+        if self._width is None or self._height is None:
+            try:
+                sink = self._display_bin.get_property("video-sink")
+                if sink:
+                    pad = sink.get_static_pad("sink")
+                    if pad:
+                        caps = pad.get_current_caps()
+                        if caps:
+                            s = caps.get_structure(0)
+                            self._width = s.get_value("width")
+                            self._height = s.get_value("height")
+            except Exception:
+                self._width, self._height = None, None
+
+        res_str = f"{self._width}x{self._height}" if self._width and self._height else "?"
+
+        print(f"[STATS][{self.sender_name}] "
+            f"FPS={fps:.2f}, drop={drop:.2f}, avg={avg:.2f}, "
+            f"Mbps={self._bitrate_mbps:.2f}, res={res_str}")
+
+
+    # ========== 비트레이트 계산 ==========
+    def _on_rtp_handoff(self, identity, buffer):
+        size = buffer.get_size()
+        self._byte_accum += size
+        now = time.time()
+        elapsed = now - self._last_ts
+        if elapsed >= 1.0:
+            # Mbps로 변환
+            self._bitrate_mbps = (self._byte_accum * 8) / (elapsed * 1_000_000)
+            self._byte_accum = 0
+            self._last_ts = now
