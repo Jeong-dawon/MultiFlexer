@@ -1,7 +1,6 @@
 # peer_receiver.py
 # WebRTC 피어 수신기 클래스
 
-import time
 import gi
 
 gi.require_version('Gst', '1.0')
@@ -25,7 +24,7 @@ class PeerReceiver:
             sender_id: Sender의 고유 ID
             sender_name: Sender의 표시 이름
             ui_window: UI 윈도우 인스턴스
-            on_ready: 전환 완료 콜백 함수 (sender_id, duration_ms)
+            on_ready: (더 이상 사용하지 않음) 전환 완료 콜백
             on_down: 연결 종료 콜백 함수 (sender_id, reason)
         """
         self.sio = sio
@@ -33,13 +32,10 @@ class PeerReceiver:
         self.sender_name = sender_name
         self.ui = ui_window
 
-        # 콜백 함수들
-        self._on_ready = on_ready  # (sid, dt_ms)
+        # 콜백
+        self._on_ready = on_ready  # 현재는 호출하지 않음
         self._on_down = on_down
         
-        # 전환 시간 측정용
-        self._switch_t0 = None
-
         # WebRTC 연결 상태 플래그들
         self._gst_playing = False
         self._negotiating = False
@@ -50,7 +46,7 @@ class PeerReceiver:
 
         # 렌더링 관련
         self._display_bin = None
-        self._visible = True   # Always-Playing 모드 의미상 True
+        self._visible = True
         self._winid = None
         
         # 공유 상태 플래그 (sender-share-started/stopped로 갱신)
@@ -61,19 +57,16 @@ class PeerReceiver:
 
     def update_window_from_widget(self, w):
         try:
-            if not w:  # 위젯이 None이면 skip
+            if not w:
                 return
-            # 여기서 show()가 안 된 상태면 winId()가 dummy일 수 있음
             if not w.isVisible():
                 w.show()
-
             self._winid = int(w.winId())
             print(f"[DEBUG] update_window_from_widget: {self.sender_id} winId=0x{self._winid:x}")
             self._force_overlay_handle()
         except Exception as e:
             print(f"[UI][{self.sender_name}] update_window_from_widget failed:", e)
 
-    
     def _setup_pipeline(self):
         """GStreamer 파이프라인 초기화"""
         self.pipeline = Gst.Pipeline.new(f"webrtc-pipeline-{self.sender_id}")
@@ -104,12 +97,10 @@ class PeerReceiver:
         bus.set_sync_handler(self._on_sync_message)
         bus.add_signal_watch()
         
-        # 버스 메시지 핸들러들 연결
+        # 전환시간 측정 관련 핸들러 제거 (async-done, QoS)
         message_handlers = [
             ("message::state-changed", self._on_state_changed),
             ("message::error", self._on_error),
-            ("message::async-done", self._on_async_done),
-            ("message::qos", self._on_qos),
         ]
         
         for message_type, handler in message_handlers:
@@ -161,14 +152,14 @@ class PeerReceiver:
 
     def stop(self):
         """파이프라인 완전 정지"""
-        try: self.pipeline.set_state(Gst.State.NULL)
-        except: pass
+        try:
+            self.pipeline.set_state(Gst.State.NULL)
+        except:
+            pass
 
     def pause_pipeline(self):
         """공유 중지 시 파이프라인 일시정지"""
-        if not ALWAYS_PLAYING:  # config.py에 전역 옵션 두기
-            self.share_active = False
-            self.pipeline.set_state(Gst.State.PAUSED)
+        # NOTE: ALWAYS_PLAYING 옵션은 외부 config에 둘 수 있음
         try:
             self.pipeline.set_state(Gst.State.PAUSED)
             print(f"[GST][{self.sender_name}] → PAUSED (share stopped)")
@@ -184,12 +175,6 @@ class PeerReceiver:
             GLib.timeout_add(UI_OVERLAY_DELAY_MS, lambda: (self._force_overlay_handle() or False))
         except Exception as e:
             print(f"[GST][{self.sender_name}] resume err:", e)
-
-    # Always-Playing: 실제 전환시에만 측정 시작
-    def set_visible(self, on: bool, t0: int = None):
-        """가시성 설정 및 전환 시간 측정 시작"""
-        if on:
-            self._switch_t0 = t0 if t0 is not None else time.time_ns()
 
     # ========== GStreamer 이벤트 핸들러들 ==========
     
@@ -208,37 +193,6 @@ class PeerReceiver:
         """에러 메시지 핸들러"""
         err, dbg = msg.parse_error()
         print(f"[GST][{self.sender_name}][ERROR] {err.message} (debug: {dbg})")
-
-    # 전환 완료 후보 1: async-done
-    def _on_async_done(self, bus, msg):
-        """비동기 완료 핸들러 - 전환 완료 감지용"""
-        if self._switch_t0 is None:
-            return
-        dt_ms = (time.time_ns() - self._switch_t0) / 1e6
-        self._emit_ready_once(dt_ms)
-            
-    # 전환 완료 후보 2: QoS
-    def _on_qos(self, bus, msg):
-        """QoS 메시지 핸들러 - 전환 완료 감지용"""
-        if self._switch_t0 is None:
-            return
-        dt_ms = (time.time_ns() - self._switch_t0) / 1e6
-        self._emit_ready_once(dt_ms)
-
-    # 전환 완료 후보 3: 첫 handoff(identity)
-    def _on_handoff(self, identity, buffer, pad=None, *args):
-        """Identity handoff 핸들러 - 첫 버퍼 시점 감지용"""
-        if self._switch_t0 is None:
-            return
-        dt_ms = (time.time_ns() - self._switch_t0) / 1e6
-        self._emit_ready_once(dt_ms)
-        
-    def _emit_ready_once(self, dt_ms: float):
-        """전환 완료 콜백 호출 (한 번만)"""
-        t0 = self._switch_t0
-        self._switch_t0 = None
-        if t0 is not None and self._on_ready:
-            GLib.idle_add(self._on_ready, self.sender_id, float(dt_ms))
 
     def _on_ice_conn_change(self, obj, pspec):
         """ICE 연결 상태 변경 핸들러"""
@@ -364,16 +318,7 @@ class PeerReceiver:
         decoder, conv, sink = get_decoder_and_sink()
 
         q = _make("queue")
-        ident = _make("identity")
         fpssink = _make("fpsdisplaysink")
-
-        # 첫 버퍼 시점용 handoff
-        if ident:
-            try:
-                ident.set_property("signal-handoffs", True)
-                ident.connect("handoff", self._on_handoff)
-            except Exception:
-                pass
 
         # FPS 측정 싱크 설정
         if fpssink:
@@ -389,18 +334,15 @@ class PeerReceiver:
         if not all([depay, parse, decoder, conv, q, fpssink]):
             print(f"[RTC][{self.sender_name}] 요소 부족으로 링크 실패"); return
 
-        # 파이프라인 구성
-        for e in (depay, parse, decoder, conv, q, ident, fpssink) if ident else (depay, parse, decoder, conv, q, fpssink):
-            self.pipeline.add(e); e.sync_state_with_parent()
+        # 파이프라인 구성 (identity 제거)
+        for e in (depay, parse, decoder, conv, q, fpssink):
+            self.pipeline.add(e)
+            e.sync_state_with_parent()
 
         # 링크
         if pad.link(depay.get_static_pad("sink")) != Gst.PadLinkReturn.OK:
             print(f"[RTC][{self.sender_name}] pad link 실패"); return
-        depay.link(parse); parse.link(decoder); decoder.link(conv); conv.link(q)
-        if ident:
-            q.link(ident); ident.link(fpssink)
-        else:
-            q.link(fpssink)
+        depay.link(parse); parse.link(decoder); decoder.link(conv); conv.link(q); q.link(fpssink)
 
         self._display_bin = fpssink
         print(f"[OK][{self.sender_name}] Incoming video linked → {decoder.name}")
