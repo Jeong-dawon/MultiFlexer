@@ -1,0 +1,9 @@
+flask
+flask-socketio
+python-socketio[client]
+paho-mqtt
+PyQt5
+PyQt5-sip
+pycairo
+PyGObject
+
