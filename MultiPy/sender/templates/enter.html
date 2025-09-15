@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MultiFlexer</title>
+    <title>Multiplexer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -32,21 +32,41 @@
     </div>
 
     <script>
-        document.getElementById("shareBtn").addEventListener("click", () => {
-            window.location.href = "/share";
-        });
+        async function askAdminPassword() {
+            while (true) {
+                const password = prompt("관리자 비밀번호를 입력하세요:");
+                if (password === null) {
+                    // 사용자가 취소 누르면 중단
+                    return;
+                }
+
+                const res = await fetch("/check_admin", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = "/manage";
+                    return; // 성공 시 반복 종료
+                } else {
+                    alert("비밀번호가 올바르지 않습니다. 다시 시도하세요.");
+                    // while문이 계속 돌아가므로 다시 prompt 뜸
+                }
+            }
+        }
 
         document.getElementById("adminBtn").addEventListener("click", () => {
-            window.location.href = "/manage";
+            askAdminPassword();
         });
 
-        // 테마 토글 기능 (선택사항)
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 't' || e.key === 'T') {
-                document.body.classList.toggle('light-mode');
-            }
+        document.getElementById("shareBtn").addEventListener("click", () => {
+            window.location.href = "/share";  
         });
     </script>
+
+
 </body>
 
 </html>

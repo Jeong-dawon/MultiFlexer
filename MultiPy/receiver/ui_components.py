@@ -11,7 +11,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("WebRTC Receiver")
+        self.setWindowTitle("Multiplexer")
         self.resize(1280, 720)
         self.setStyleSheet("""
             QMainWindow {
@@ -110,7 +110,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         card.setFixedSize(360, 360)
 
         c = QtWidgets.QVBoxLayout(card)
-        c.setContentsMargins(32, 40, 32, 40)  # ⬆️⬇️ 위/아래 여백 증가
+        c.setContentsMargins(32, 40, 32, 40) 
         c.setSpacing(0)
 
 
@@ -242,8 +242,6 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         shortcuts = [
             (QtCore.Qt.Key_Left, lambda: self.switchRequested.emit(-1)),
             (QtCore.Qt.Key_Right, lambda: self.switchRequested.emit(+1)),
-            (QtCore.Qt.Key_Up, self.show_sender_info_popup),
-            (QtCore.Qt.Key_Down, self.hide_sender_info_popup),
             (QtCore.Qt.Key_Escape, self._toggle_fullscreen),
             (QtCore.Qt.Key_Q, self.quitRequested.emit),
         ]
@@ -261,53 +259,29 @@ class ReceiverWindow(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(str, str, result=object)
     def ensure_widget(self, sender_id: str, sender_name: str):
         w = self._widgets.get(sender_id)
-
         def _is_dead(obj: QtWidgets.QWidget) -> bool:
+            # PyQt 래퍼가 죽었으면 아래 접근에서 RuntimeError가 난다.
             try:
+                # 가벼운 접근 몇 개: 어느 하나라도 RuntimeError가 나면 죽었다고 판단
                 _ = obj.objectName()
-                _ = obj.winId()
+                _ = obj.winId()       # 네이티브 핸들 접근
                 return False
             except Exception:
                 return True
 
+        # 기존 위젯이 없거나, 죽었으면 재생성
         if (w is None) or _is_dead(w):
-            # ✅ placeholder 위젯
-            placeholder = QtWidgets.QWidget(self)
-            layout = QtWidgets.QVBoxLayout(placeholder)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.setAlignment(QtCore.Qt.AlignCenter)
-
-            icon = QtWidgets.QLabel()
-            icon.setPixmap(self.style().standardIcon(
-                QtWidgets.QStyle.SP_ComputerIcon).pixmap(64, 64))
-            text = QtWidgets.QLabel("대기중")
-            text.setAlignment(QtCore.Qt.AlignCenter)
-            text.setStyleSheet("color: black; font-size: 14px;")
-            layout.addWidget(icon)
-            layout.addWidget(text)
-            placeholder.setStyleSheet("background: #e5e7eb;")
-
-            # ✅ 비디오 출력용 위젯
-            video_widget = QtWidgets.QWidget(self)
-            video_widget.setObjectName(f"video-{sender_id}")
-            video_widget.setFocusPolicy(QtCore.Qt.NoFocus)
-            video_widget.setAttribute(QtCore.Qt.WA_NativeWindow, True)
-            _ = video_widget.winId()
-            video_widget.setStyleSheet("background: black;")
-
-            # ✅ 스택으로 묶기
-            container = QtWidgets.QStackedWidget(self)
-            container.addWidget(placeholder)   # index 0
-            container.addWidget(video_widget)  # index 1
-            container.setCurrentIndex(0)
-
-            self._widgets[sender_id] = container
-            self._stack.addWidget(container)
+            w = QtWidgets.QWidget(self)
+            w.setObjectName(f"video-{sender_id}")
+            w.setFocusPolicy(QtCore.Qt.NoFocus)
+            w.setAttribute(QtCore.Qt.WA_NativeWindow, True)
+            _ = w.winId()  # 핸들 실체화
+            self._widgets[sender_id] = w
+            self._stack.addWidget(w)
 
         if sender_name:
             self._names[sender_id] = sender_name
-        return self._widgets[sender_id]
-
+        return w
 
     def get_widget(self, sender_id: str):
         return self._widgets.get(sender_id)
@@ -315,32 +289,7 @@ class ReceiverWindow(QtWidgets.QMainWindow):
     def set_active_sender(self, sender_id: str):
         self._current_sender_id = sender_id
         w = self._widgets.get(sender_id)
-
-        if w:
-            self._stack.setCurrentWidget(w)
-        else:
-            # ✅ sender 없으면 placeholder 위젯 생성/표시
-            placeholder = QtWidgets.QWidget(self)
-            layout = QtWidgets.QVBoxLayout(placeholder)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.setAlignment(QtCore.Qt.AlignCenter)
-
-            icon = QtWidgets.QLabel()
-            icon.setPixmap(self.style().standardIcon(
-                QtWidgets.QStyle.SP_ComputerIcon).pixmap(64, 64))
-            icon.setAlignment(QtCore.Qt.AlignCenter)
-
-            text = QtWidgets.QLabel("대기중")
-            text.setAlignment(QtCore.Qt.AlignCenter)
-            text.setStyleSheet("color: black; font-size: 20px;")
-
-            layout.addWidget(icon)
-            layout.addWidget(text)
-            placeholder.setStyleSheet("background: #e5e7eb;")
-
-            self._stack.addWidget(placeholder)
-            self._stack.setCurrentWidget(placeholder)
-
+        self._stack.setCurrentWidget(w if w else self._landing)
 
     def set_active_sender_name(self, sender_id: str, sender_name: str):
         if sender_name:
@@ -357,16 +306,6 @@ class ReceiverWindow(QtWidgets.QMainWindow):
         if self._current_sender_id == sender_id:
             self._current_sender_id = None
             self._stack.setCurrentWidget(self._landing)
-            self.hide_sender_info_popup()
             
-    def show_sender_info_popup(self):
-        sid = self._current_sender_id
-        if sid:
-            name = self._names.get(sid, sid)
-            self._info_popup.set_text(f"Sender: {name} ({sid[:8]})")
-            self._info_popup.show_at_parent_corner(self)
-
-    def hide_sender_info_popup(self):
-        self._info_popup.hide()
 
     

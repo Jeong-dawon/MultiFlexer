@@ -20,6 +20,7 @@ SWITCH_COOLDOWN_MS = 150
 STUN_SERVER = "stun://stun.l.google.com:19302"
 GST_VIDEO_CAPS = ("application/x-rtp,media=video,encoding-name=H264,clock-rate=90000,"
                   "payload=102,packetization-mode=(string)1,profile-level-id=(string)42e01f")
+ALWAYS_PLAYING = True
 
 # 타이머 설정
 GLIB_TIMER_INTERVAL_MS = 5
