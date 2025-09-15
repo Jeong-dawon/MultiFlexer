@@ -275,3 +275,26 @@ body {
   justify-content: center;
   text-align: center;
 }
+
+.dash-participant-area {
+  position: absolute;       /* 부모 .dash-right 기준 */
+  top: 20px;                /* participant-area가 시작되는 위치에 맞춤 */
+  left: 20px;
+  right: 20px;
+  bottom: 80px;             /* controls 영역(64px) + 간격 */
+  overflow-y: auto;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.dash-participant {
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 500;
+  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1px solid #e5e7eb;
+}
