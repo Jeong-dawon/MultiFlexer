@@ -10,6 +10,7 @@
 </head>
 
 <body>
+  
   <div class="container">
     <!-- 왼쪽 영역 -->
     <div class="left">
@@ -34,8 +35,16 @@
         <div class="plus">
           <img src="../static/images/plus.png" alt="+">
         </div>
+        
+        <div class="dash-left hidden">
+          <h2>대시보드 (Left)</h2>
+        </div>
+
       </div>
     </div>
+
+    <!-- 대시보드 보기 버튼 -->
+    <button id="dashboard-btn">대시보드 보기</button>
 
     <!-- 오른쪽 영역 -->
     <div class="right">
@@ -51,8 +60,12 @@
           <img src="../static/images/mic-icon.png" alt="마이크" draggable="false">
         </button>
       </div>
-    </div>
 
+      <div class="dash-right hidden">
+        <h2>대시보드 (Right)</h2>
+      </div>
+
+    </div>
   </div>
 
   <!-- JavaScript 파일들을 순서대로 로드 -->

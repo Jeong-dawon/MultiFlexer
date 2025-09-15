@@ -973,3 +973,36 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('[ADMIN] DOM 로드 완료 - UI 초기화');
     uiManager.initialize();
 });
+
+// 대시보드 토글 버튼 이벤트 
+document.addEventListener('DOMContentLoaded', function () {
+  const dashboardBtn = document.getElementById('dashboard-btn');
+  const dashLeft = document.querySelector('.dash-left');
+  const dashRight = document.querySelector('.dash-right');
+
+  let isDashboardActive = false; // 토글 상태 저장
+
+  if (dashboardBtn) {
+    dashboardBtn.addEventListener('click', () => {
+      isDashboardActive = !isDashboardActive;
+
+      if (isDashboardActive) {
+        // 대시보드 모드 ON
+        dashboardBtn.textContent = '대시보드 중지';
+        dashboardBtn.style.background = '#ff4444';
+
+        // 덮개 켜기
+        dashLeft.classList.remove('hidden');
+        dashRight.classList.remove('hidden');
+      } else {
+        // 대시보드 모드 OFF
+        dashboardBtn.textContent = '대시보드 보기';
+        dashboardBtn.style.background = '#04d2af';
+
+        // 덮개 끄기
+        dashLeft.classList.add('hidden');
+        dashRight.classList.add('hidden');
+      }
+    });
+  }
+});

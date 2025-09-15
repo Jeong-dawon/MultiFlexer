@@ -362,7 +362,7 @@ class PeerReceiver:
         q = _make("queue")
         fpssink = _make("fpsdisplaysink")
 
-        # 🚩 여기서 OS별 싱크 생성
+        # 여기서 OS별 싱크 생성
         sink = None
         if sys.platform.startswith("linux"):
             # Jetson / 일반 Linux
