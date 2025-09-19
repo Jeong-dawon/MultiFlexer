@@ -1007,22 +1007,40 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // === STATS 표시 ===
 function handleStatsMessage(stats) {
-    console.log("[ADMIN][STATS] 수신:", stats); // 콘솔 확인용 로그
   const area = document.querySelector('.video-measurement-area');
-  if (!area) return;
+  if (!area) {
+    console.warn("[UI] video-measurement-area를 찾을 수 없음!");
+    return;
+  }
 
-  // 기존 내용 지우고 다시 표시
-  area.innerHTML = `
-    <div style="padding: 6px; font-size: 14px; color: white;">
-      <strong>${stats.id}</strong><br>
-      FPS: ${stats.fps.toFixed(2)}<br>
-      Drop: ${stats.drop.toFixed(2)}<br>
-      Avg FPS: ${stats.avg_fps.toFixed(2)}<br>
-      Mbps: ${stats.mbps.toFixed(2)}<br>
-      Res: ${stats.width}x${stats.height}
-    </div>
+  console.log("[UI] handleStatsMessage 호출됨", stats);
+
+  // 기존 div 찾아서 업데이트
+  let statDiv = area.querySelector(`.stat-entry[data-name="${stats.name}"]`);
+
+  if (!statDiv) {
+    statDiv = document.createElement("div");
+    statDiv.classList.add("stat-entry");
+    statDiv.dataset.name = stats.name;
+    statDiv.style.color = "#000";
+    statDiv.style.fontSize = "14px";
+    statDiv.style.marginBottom = "8px";
+    statDiv.style.border = "1px solid #ddd";
+    statDiv.style.borderRadius = "8px";
+    statDiv.style.background = "#fff";
+    area.appendChild(statDiv);
+  }
+
+  statDiv.innerHTML = `
+    <strong>${stats.name || "이름없음"}</strong><br>
+    FPS: ${(stats.fps ?? 0).toFixed(2)}<br>
+    Avg FPS: ${(stats.avg_fps ?? 0).toFixed(2)}<br>
+    Mbps: ${(stats.mbps ?? 0).toFixed(2)}<br>
+    Drop: ${(stats.drop ?? 0).toFixed(2)}<br>
+    Res: ${stats.width}x${stats.height}
   `;
 }
+window.handleStatsMessage = handleStatsMessage;
 
 // === MQTT 구독 연결 ===
 if (window.client) {

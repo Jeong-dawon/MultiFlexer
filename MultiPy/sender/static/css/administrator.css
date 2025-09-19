@@ -298,3 +298,19 @@ body {
   padding: 12px 16px;
   border: 1px solid #e5e7eb;
 }
+
+.video-measurement-area {
+  position: absolute;     /* .dash-left 안에서 위치 */
+  top: 20px;              /* 위에서 약간 띄움 */
+  left: 20px;
+  right: 20px;
+
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.8); /* 반투명 흰 배경 */
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111;
+  text-align: left;
+
+  z-index: 200;           /* dash-left 위에 보이도록 */
+}
