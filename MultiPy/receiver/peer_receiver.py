@@ -450,17 +450,18 @@ class PeerReceiver:
             f"Mbps={self._bitrate_mbps:.2f}, res={res_str}")
         
         stats = {
-            "fps": fps,
-            "drop": drop,
-            "avg_fps": avg,
-            "mbps": self._bitrate_mbps,
-            "width": self._width or 0,
-            "height": self._height or 0,
+            "name": self.sender_name,
+            "fps": float(fps),
+            "drop": float(drop),
+            "avg_fps": float(avg),
+            "mbps": float(self._bitrate_mbps),
+            "width": int(self._width or 0),
+            "height": int(self._height or 0),
         }
 
         print(f"[DEBUG][{self.sender_name}] mqtt_manager = {self.mqtt_manager}")
         if self.mqtt_manager:
-            self.mqtt_manager.publish_stats(self.sender_id, stats, sender_name=self.sender_name)
+            self.mqtt_manager.publish_stats(self.sender_name, stats, interval=1.0)
 
 
     # ========== 비트레이트 계산 ==========
