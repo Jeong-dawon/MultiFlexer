@@ -43,13 +43,14 @@ def main():
     
     view_manager = ViewModeManager(ui)   
 
-    # MultiReceiverManager 생성 및 시작
-    manager = MultiReceiverManager(ui, view_manager)
+    # manager 생성할 때 mqtt_manager를 먼저 만든 뒤 넘김
+    mqtt_manager = MqttManager(receiver_manager=None, view_mode_manager=view_manager)
+    manager = MultiReceiverManager(ui, view_manager, mqtt_manager=mqtt_manager)
     manager.start()
-    
-    # Mqtt - MultiReceiverManager 양방향 연결
-    mqtt_manager = MqttManager(receiver_manager=manager, view_mode_manager=view_manager)
-    manager.mqtt_publisher = mqtt_manager  # MQTT 클라이언트 설정
+
+    # 양방향 연결 (manager도 mqtt_manager를 알고, mqtt_manager도 manager를 알도록)
+    mqtt_manager.receiver_manager = manager
+    manager.mqtt_publisher = mqtt_manager
     
     # 종료 핸들러 정의 및 연결
     def _quit(*_):

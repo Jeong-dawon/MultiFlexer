@@ -37,6 +37,7 @@ function onConnect() {
 	subscribe("participant/response"); // (요청시) Reciver로부터 참여자 목록 받아옴
 	subscribe("screen/response"); // (요청시) Reciver로부터 화면 공유 정보 받아옴
 	subscribe("participant/update"); // (참여자 목록이 변할 때마다) Reciver로부터 참여자 목록 받아옴
+	subscribe("stats/update");
 
 	// 초기 데이터 요청
 	publish("participant/request", "") // Reciver에게 참여자 목록 요청
@@ -125,6 +126,22 @@ function onMessageArrived(msg) {
 			console.error("[MQTT ERROR] 화면 공유 정보 파싱 실패:", error);
 		}
 	}
+	
+	else if (msg.destinationName === "stats/update") {
+		try {
+			const stats = JSON.parse(msg.payloadString);
+			console.log("[MQTT][STATS] 메시지 수신:", stats);
+
+			// 화면에 표시 (administrator.js에 handleStatsMessage 정의되어 있어야 함)
+			if (window.handleStatsMessage) {
+				window.handleStatsMessage(stats);
+			}
+
+		} catch (error) {
+			console.error("[MQTT ERROR] STATS 파싱 실패:", error, msg.payloadString);
+		}
+	}
+
 }
 
 function disconnect() {

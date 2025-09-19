@@ -18,7 +18,7 @@ class PeerReceiver:
     """WebRTC 피어 연결을 관리하는 수신기 클래스"""
     
     def __init__(self, sio, sender_id, sender_name, ui_window,
-                 on_ready=None, on_down=None):
+                 on_ready=None, on_down=None, mqtt_manager=None):
         """
         Args:
             sio: Socket.IO 클라이언트 인스턴스
@@ -35,6 +35,7 @@ class PeerReceiver:
         self.current_fps = 0.0
         self.drop_rate = 0.0
         self.avg_fps = 0.0
+        self.mqtt_manager = mqtt_manager
 
         # 콜백
         self._on_ready = on_ready  # 현재는 호출하지 않음
@@ -418,9 +419,6 @@ class PeerReceiver:
         conv.link(q)
         q.link(fpssink)
 
-        # FPS 콜백 연결
-        fpssink.connect("fps-measurements", self._on_fps_measurements)
-
         self._display_bin = fpssink
         print(f"[OK][{self.sender_name}] Incoming video linked → {decoder.name}")
 
@@ -450,6 +448,19 @@ class PeerReceiver:
         print(f"[STATS][{self.sender_name}] "
             f"FPS={fps:.2f}, drop={drop:.2f}, avg={avg:.2f}, "
             f"Mbps={self._bitrate_mbps:.2f}, res={res_str}")
+        
+        stats = {
+            "fps": fps,
+            "drop": drop,
+            "avg_fps": avg,
+            "mbps": self._bitrate_mbps,
+            "width": self._width or 0,
+            "height": self._height or 0,
+        }
+
+        print(f"[DEBUG][{self.sender_name}] mqtt_manager = {self.mqtt_manager}")
+        if self.mqtt_manager:
+            self.mqtt_manager.publish_stats(self.sender_id, stats, sender_name=self.sender_name)
 
 
     # ========== 비트레이트 계산 ==========

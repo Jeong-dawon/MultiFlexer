@@ -11,9 +11,10 @@ from config import SIGNALING_URL, RECEIVER_NAME, UI_OVERLAY_DELAY_MS
 from peer_receiver import PeerReceiver
 
 class MultiReceiverManager:
-    def __init__(self, ui_window, view_manager=None):
+    def __init__(self, ui_window, view_manager=None, mqtt_manager=None):
         self.ui = ui_window
         self.view_manager = view_manager 
+        self.mqtt_manager = mqtt_manager
         self.sio = socketio.Client(
             logger=False, 
             engineio_logger=False, 
@@ -151,7 +152,8 @@ class MultiReceiverManager:
                 peer = PeerReceiver(
                     self.sio, sid, name, self.ui,
                     on_ready=None,
-                    on_down=lambda x, reason="ice", **_: self._remove_sender(x, reason=reason)
+                    on_down=lambda x, reason="ice", **_: self._remove_sender(x, reason=reason),
+                    mqtt_manager=self.mqtt_manager
                 )
                 self.peers[sid] = peer
                 if sid not in self._order:

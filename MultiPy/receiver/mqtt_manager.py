@@ -1,5 +1,6 @@
 import json, paho.mqtt.client as mqtt
 from PyQt5 import QtCore
+import time 
 
 # 전역 변수로 receiver_manager 저장
 receiver_manager = None
@@ -12,6 +13,7 @@ class MqttManager:
         self.client.loop_start()
         self.receiver_manager = receiver_manager
         self.view_mode_manager = view_mode_manager
+        self._last_stats_publish = {}  # sender_id별 마지막 발행 시각 기록
         
     # ---------- MQTT 중단 ----------
     def stop(self):
@@ -119,3 +121,17 @@ class MqttManager:
         except Exception as e:
             print(f"[ERROR] 현재 화면 정보 조회 중 오류: {e}")
             return {"layout": 1, "participants": []}
+        
+    def publish_stats(self, sender_id, stats: dict, sender_name=None, interval: float = 1.0):
+        """송신자별 STATS를 1초에 한 번만 MQTT로 발행"""
+        now = time.time()
+        last_time = self._last_stats_publish.get(sender_id, 0)
+
+        if now - last_time >= interval:  # 최소 interval 초 간격 유지
+            payload = {
+            "name": sender_name,  
+            **stats
+        }
+            self.publish("stats/update", json.dumps(payload))
+            self._last_stats_publish[sender_id] = now
+            print(f"[MQTT] Published stats: {payload}")
