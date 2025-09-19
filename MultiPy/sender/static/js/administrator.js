@@ -1005,6 +1005,41 @@ document.addEventListener('DOMContentLoaded', function () {
     uiManager.initialize();
 });
 
+// === STATS 표시 ===
+function handleStatsMessage(stats) {
+    console.log("[ADMIN][STATS] 수신:", stats); // 콘솔 확인용 로그
+  const area = document.querySelector('.video-measurement-area');
+  if (!area) return;
+
+  // 기존 내용 지우고 다시 표시
+  area.innerHTML = `
+    <div style="padding: 6px; font-size: 14px; color: white;">
+      <strong>${stats.id}</strong><br>
+      FPS: ${stats.fps.toFixed(2)}<br>
+      Drop: ${stats.drop.toFixed(2)}<br>
+      Avg FPS: ${stats.avg_fps.toFixed(2)}<br>
+      Mbps: ${stats.mbps.toFixed(2)}<br>
+      Res: ${stats.width}x${stats.height}
+    </div>
+  `;
+}
+
+// === MQTT 구독 연결 ===
+if (window.client) {
+  window.client.subscribe("stats/update");
+
+  window.client.on("message", function (topic, message) {
+    if (topic === "stats/update") {
+      try {
+        const stats = JSON.parse(message.toString());
+        handleStatsMessage(stats);
+      } catch (err) {
+        console.error("[STATS] JSON parse error:", err);
+      }
+    }
+  });
+}
+
 // 대시보드 토글 버튼 이벤트 
 document.addEventListener('DOMContentLoaded', function () {
   const dashboardBtn = document.getElementById('dashboard-btn');
