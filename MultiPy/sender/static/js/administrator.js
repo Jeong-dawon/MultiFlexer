@@ -26,6 +26,8 @@ const stateManager = {
 
         // UI 업데이트 - 모든 참여자 표시
         uiManager.updateParticipantList(allParticipantNames);
+        // 대시보드용 업데이트
+        uiManager.updateDashParticipantList(allParticipantNames);
     },
 
     // 모든 참여자 이름 목록 반환 (활성/비활성 구분 없이)
@@ -196,6 +198,7 @@ const uiManager = {
     layoutOptions: [],
     plusIcon: null,
     micBtn: null,
+    dashParticipantArea: null,
 
     // 드래그 관련
     draggedParticipant: null,
@@ -209,6 +212,7 @@ const uiManager = {
         this.layoutOptions = document.querySelectorAll('.layout-option');
         this.plusIcon = document.querySelector('.plus');
         this.micBtn = document.querySelector('.mic-btn');
+        this.dashParticipantArea = document.querySelector('.dash-participant-area');
 
         if (!this.videoArea || !this.participantArea) {
             console.error('[UI ERROR] 필수 DOM 요소를 찾을 수 없습니다.');
@@ -358,6 +362,33 @@ const uiManager = {
         // 참여자 요소 목록 업데이트
         this.participantElements = document.querySelectorAll('.participant');
         console.log(`[UI] 참여자 UI 업데이트 완료: ${participantList.length}명`);
+    },
+
+    // 대시보드 전용 참여자 목록 업데이트
+    updateDashParticipantList(participantList) {
+        if (!this.dashParticipantArea) return;
+        this.dashParticipantArea.innerHTML = '';
+
+        if (participantList.length === 0) {
+        const noMsg = document.createElement('div');
+        noMsg.className = 'no-participants';
+        noMsg.textContent = '참여자를 기다리는 중...';
+        noMsg.style.cssText = `
+            text-align: center;
+            color: #888;
+            padding: 20px;
+            font-style: italic;
+        `;
+        this.dashParticipantArea.appendChild(noMsg);
+        return;
+        }
+
+        participantList.forEach(userName => {
+        const div = document.createElement('div');
+        div.className = 'dash-participant';
+        div.textContent = userName;
+        this.dashParticipantArea.appendChild(div);
+        });
     },
 
     // 드래그 관련 이벤트 처리
@@ -972,4 +1003,37 @@ window.updateMicButtonState = updateMicButtonState;
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[ADMIN] DOM 로드 완료 - UI 초기화');
     uiManager.initialize();
+});
+
+// 대시보드 토글 버튼 이벤트 
+document.addEventListener('DOMContentLoaded', function () {
+  const dashboardBtn = document.getElementById('dashboard-btn');
+  const dashLeft = document.querySelector('.dash-left');
+  const dashRight = document.querySelector('.dash-right');
+
+  let isDashboardActive = false; // 토글 상태 저장
+
+  if (dashboardBtn) {
+    dashboardBtn.addEventListener('click', () => {
+      isDashboardActive = !isDashboardActive;
+
+      if (isDashboardActive) {
+        // 대시보드 모드 ON
+        dashboardBtn.textContent = '대시보드 중지';
+        dashboardBtn.style.background = '#ff4444';
+
+        // 덮개 켜기
+        dashLeft.classList.remove('hidden');
+        dashRight.classList.remove('hidden');
+      } else {
+        // 대시보드 모드 OFF
+        dashboardBtn.textContent = '대시보드 보기';
+        dashboardBtn.style.background = '#04d2af';
+
+        // 덮개 끄기
+        dashLeft.classList.add('hidden');
+        dashRight.classList.add('hidden');
+      }
+    });
+  }
 });

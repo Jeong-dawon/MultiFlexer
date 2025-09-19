@@ -26,6 +26,7 @@ body {
   gap: 20px;
   align-items: flex-start;
   /* stretch에서 flex-start로 변경 */
+  position: relative;
 }
 
 /* 왼쪽 영역 */
@@ -65,6 +66,7 @@ body {
   border: 1px solid #e5e7eb;
   min-height: 0;
   /* flex item이 축소될 수 있도록 */
+  position: relative;
 }
 
 .plus {
@@ -94,7 +96,7 @@ body {
 }
 
 .hidden {
-  display: none;
+  display: none; 
 }
 
 .slot {
@@ -128,6 +130,7 @@ body {
   /* 로고의 대략적인 높이 + 마진을 고려한 값 */
   /* right 영역의 실제 높이 조정 */
   height: calc(100% - 75px);
+  position: relative;
 }
 
 .participant-area {
@@ -225,4 +228,73 @@ body {
   user-select: none;
   -webkit-user-drag: none;
   filter: brightness(0) invert(1);
+}
+
+/* 버튼을 right 위쪽에 붙이기 */
+#dashboard-btn {
+  position: absolute;
+  top: 75px;                 /* .right margin-top과 동일 */
+  right: 24px;               /* container padding */
+  transform: translate(0%, -100%);
+
+  width: calc(17% - 45px);
+
+  padding: 10px 0;
+  border: none;
+  border-radius: 8px;
+  background: #04d2af;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  text-align: center;
+}
+
+#dashboard-btn:hover {
+  background: #008f77;
+}
+
+.dash-right {
+  position: absolute;
+  inset: 0;                /* 부모 크기에 딱 맞게 */
+  background: rgba(234, 255, 255);
+  border-radius: inherit;  /* 부모의 둥근 모서리 따라감 */
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.dash-left {
+  position: absolute;
+  inset: 0;                /* video-area 전체 덮기 */
+  background: rgba(234, 255, 255);
+  border-radius: inherit;
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.dash-participant-area {
+  position: absolute;       /* 부모 .dash-right 기준 */
+  top: 20px;                /* participant-area가 시작되는 위치에 맞춤 */
+  left: 20px;
+  right: 20px;
+  bottom: 80px;             /* controls 영역(64px) + 간격 */
+  overflow-y: auto;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.dash-participant {
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 500;
+  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1px solid #e5e7eb;
 }
