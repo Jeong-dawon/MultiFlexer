@@ -1049,6 +1049,7 @@ const uiManager = {
                 this.addParticipantToSlot(name, slot);
             }
         });
+        stateManager.publishPlacementUpdate();
     }
 };
 
