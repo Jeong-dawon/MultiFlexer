@@ -19,6 +19,17 @@ const stateManager = {
         // 모든 참여자 이름 추출
         const allParticipantNames = this.getAllParticipantNames();
 
+        //나간 참여자 = 이전 allParticipants에 있었지만 지금은 없는 사람
+        const removedParticipants = this.placedParticipants.filter(
+            p => !allParticipantNames.includes(p.name)
+        );
+
+        // placedParticipants에서 나간 사람 제거
+        if (removedParticipants.length > 0) {
+            this.handleParticipantLeave(removedParticipants);
+        }
+
+
         // 기존 배치된 참여자 중 목록에서 제거된 사용자가 있는지 확인
         this.placedParticipants = this.placedParticipants.filter(placedParticipant =>
             allParticipantNames.includes(placedParticipant.name)
@@ -29,6 +40,17 @@ const stateManager = {
         // 대시보드용 업데이트
         uiManager.updateDashParticipantList(this.getPlacedParticipantNames());
     },
+
+    handleParticipantLeave(removedParticipants) {
+        removedParticipants.forEach(p => {
+            this.removeFromVideoArea(p.name);      // 상태 + MQTT 전송
+            uiManager.removeParticipantFromUI(p.name); // UI 슬롯 제거
+        });
+
+        // 🔑 여기서 레이아웃 정리 실행
+        uiManager.adjustLayoutAfterRemoval();
+    },
+
 
     // 모든 참여자 이름 목록 반환 (활성/비활성 구분 없이)
     getAllParticipantNames() {
@@ -147,7 +169,12 @@ const stateManager = {
         try {
             // 서버 상태로 업데이트
             this.currentLayout = screenData.layout || 1;
-            this.placedParticipants = screenData.participants || [];
+
+            // 🔑 Unknown 같은 유효하지 않은 참가자 제거
+            this.placedParticipants = (screenData.participants || []).filter(p => {
+                return p.name && p.name !== "Unknown" &&
+                    this.allParticipants.some(ap => ap.id === p.id);
+            });
 
             console.log(`[STATE] 동기화: 레이아웃 ${this.currentLayout}, 참가자 ${this.placedParticipants.length}명`);
 
@@ -158,6 +185,7 @@ const stateManager = {
             console.error("[STATE ERROR] 화면 상태 동기화 실패:", error);
         }
     },
+
 
     // 서버 상태와 HTML 동기화
     _syncWithServerState() {
@@ -858,36 +886,21 @@ const uiManager = {
         uiManager.updateDashParticipantList(stateManager.getPlacedParticipantNames());
     },
 
-    // 제거 후 레이아웃 조정
-    adjustLayoutAfterRemoval() {
-        if (stateManager.placedParticipants.length > 0) {
-            const optimalLayout = stateManager.getOptimalLayout(stateManager.placedParticipants.length);
+    removeParticipantFromUI(participantName) {
+        const slot = Array.from(document.querySelectorAll('.slot[data-occupied]'))
+            .find(s => s.querySelector('div div')?.textContent === participantName);
 
-            // 현재 참가자들 정보 백업
-            const currentParticipantNames = stateManager.getPlacedParticipantNames();
-
-            // 상태 초기화
-            currentParticipantNames.forEach(name => {
-                stateManager.removeFromVideoArea(name);
-            });
-
-            // 새 레이아웃 생성
-            stateManager.setLayout(optimalLayout);
-            this.createVideoSlots();
-
-            // 참가자들 재배치
-            currentParticipantNames.forEach((name, index) => {
-                const targetSlot = document.querySelector(`#slot-${index}`);
-                if (targetSlot) {
-                    this.addParticipantToSlot(name, targetSlot);
-                }
-            });
-
-        } else {
-            // 모든 참가자가 제거되면 초기 상태로
-            this.resetVideoArea();
+        if (slot) {
+            slot.innerHTML = '';
+            slot.removeAttribute('data-occupied');
+            slot.style.background = 'transparent';
+            slot.style.border = '2px dashed rgba(255, 255, 255, 1)';
+            console.log(`[UI] 슬롯에서 자동 제거: ${participantName}`);
         }
+
+        this.updateParticipantButtonColor(participantName, false);
     },
+
 
     // 레이아웃 자동 확장 체크
     checkAndExpandLayout() {
@@ -1008,6 +1021,34 @@ const uiManager = {
         if (emptySlot) {
             this.addParticipantToSlot(participantName, emptySlot);
         }
+    },
+    
+    adjustLayoutAfterRemoval() {
+        const placedCount = stateManager.placedParticipants.length;
+
+        if (placedCount === 0) {
+            // 배치된 참가자가 없으면 전체 초기화
+            this.resetVideoArea();
+            return;
+        }
+
+        // 최적 레이아웃 계산
+        const optimalLayout = stateManager.getOptimalLayout(placedCount);
+        stateManager.setLayout(optimalLayout);
+
+        // 현재 배치된 이름들 백업
+        const currentNames = stateManager.getPlacedParticipantNames();
+
+        // 레이아웃 새로 생성
+        this.createVideoSlots();
+
+        // 참가자들 다시 슬롯에 배치
+        currentNames.forEach((name, index) => {
+            const slot = document.querySelector(`#slot-${index}`);
+            if (slot) {
+                this.addParticipantToSlot(name, slot);
+            }
+        });
     }
 };
 
@@ -1027,6 +1068,7 @@ function updateMicButtonState(isRecording) {
         }
     }
 }
+
 
 // 전역 함수들 노출 (다른 모듈에서 사용)
 window.stateManager = stateManager;

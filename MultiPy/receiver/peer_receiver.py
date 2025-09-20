@@ -68,7 +68,7 @@ class PeerReceiver:
         self._setup_pipeline()
 
         # 1초 주기 통계 tick
-        GLib.timeout_add(1000, self._stats_tick)
+        self._stats_timer_id = GLib.timeout_add(1000, self._stats_tick)
 
     def _stats_tick(self):
         try:
@@ -194,9 +194,16 @@ class PeerReceiver:
         print(f"[GST][{self.sender_name}] set_state ->", ret.value_nick)
 
     def stop(self):
-        """파이프라인 완전 정지"""
         try:
-            self.pipeline.set_state(Gst.State.NULL)
+            if self._stats_timer_id:
+                GLib.source_remove(self._stats_timer_id)
+                self._stats_timer_id = None
+        except:
+            pass
+        try:
+            if self.pipeline:
+                self.pipeline.set_state(Gst.State.NULL)
+                self.pipeline = None
         except:
             pass
 
