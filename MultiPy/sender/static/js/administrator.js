@@ -27,7 +27,7 @@ const stateManager = {
         // UI 업데이트 - 모든 참여자 표시
         uiManager.updateParticipantList(allParticipantNames);
         // 대시보드용 업데이트
-        uiManager.updateDashParticipantList(allParticipantNames);
+        uiManager.updateDashParticipantList(this.getPlacedParticipantNames());
     },
 
     // 모든 참여자 이름 목록 반환 (활성/비활성 구분 없이)
@@ -370,24 +370,42 @@ const uiManager = {
         this.dashParticipantArea.innerHTML = '';
 
         if (participantList.length === 0) {
-        const noMsg = document.createElement('div');
-        noMsg.className = 'no-participants';
-        noMsg.textContent = '참여자를 기다리는 중...';
-        noMsg.style.cssText = `
-            text-align: center;
-            color: #888;
-            padding: 20px;
-            font-style: italic;
-        `;
-        this.dashParticipantArea.appendChild(noMsg);
-        return;
+            const noMsg = document.createElement('div');
+            noMsg.className = 'no-participants';
+            noMsg.textContent = '참여자를 기다리는 중...';
+            noMsg.style.cssText = `
+                text-align: center;
+                color: #888;
+                padding: 20px;
+                font-style: italic;
+            `;
+            this.dashParticipantArea.appendChild(noMsg);
+            return;
         }
 
+        // === 전체보기 버튼 추가 ===
+        const allBtn = document.createElement('button');
+        allBtn.className = 'dash-participant all-btn';
+        allBtn.textContent = '전체보기';
+        allBtn.style.marginTop = '10px';
+        allBtn.addEventListener('click', () => {
+            showPlacedStats();
+        });
+        this.dashParticipantArea.appendChild(allBtn);
+
+        // 공유 중인 참여자 버튼들 추가
         participantList.forEach(userName => {
-        const div = document.createElement('div');
-        div.className = 'dash-participant';
-        div.textContent = userName;
-        this.dashParticipantArea.appendChild(div);
+            const btn = document.createElement('button');
+            btn.className = 'dash-participant';
+            btn.textContent = userName;
+            btn.dataset.name = userName;
+
+            // 클릭 이벤트 추가
+            btn.addEventListener('click', () => {
+                filterStatsByName(userName);
+            });
+
+            this.dashParticipantArea.appendChild(btn);
         });
     },
 
@@ -778,6 +796,8 @@ const uiManager = {
 
         // 원본 참가자 요소의 시각적 표시 변경
         this.updateParticipantButtonColor(participantName, true);
+        // === 대시보드 목록 갱신 추가 ===
+        uiManager.updateDashParticipantList(stateManager.getPlacedParticipantNames());
     },
 
     // 참가자 버튼 색상 업데이트
@@ -821,6 +841,9 @@ const uiManager = {
 
         // 레이아웃 재조정
         this.adjustLayoutAfterRemoval();
+
+        // === 대시보드 목록 갱신 추가 ===
+        uiManager.updateDashParticipantList(stateManager.getPlacedParticipantNames());
     },
 
     // 제거 후 레이아웃 조정
@@ -1028,6 +1051,7 @@ function handleStatsMessage(stats) {
     statDiv.style.border = "1px solid #ddd";
     statDiv.style.borderRadius = "8px";
     statDiv.style.background = "#fff";
+    statDiv.style.display = 'none';
     area.appendChild(statDiv);
   }
 
@@ -1041,6 +1065,35 @@ function handleStatsMessage(stats) {
   `;
 }
 window.handleStatsMessage = handleStatsMessage;
+
+function filterStatsByName(name) {
+  const entries = document.querySelectorAll('.stat-entry');
+  entries.forEach(div => {
+    if (div.dataset.name === name) {
+      div.style.display = 'block'; // 해당 사용자만 보이게
+    } else {
+      div.style.display = 'none';  // 나머지는 숨김
+    }
+  });
+}
+
+window.filterStatsByName = filterStatsByName;
+
+function showPlacedStats() {
+  const placedNames = stateManager.getPlacedParticipantNames();
+  const entries = document.querySelectorAll('.stat-entry');
+
+  entries.forEach(div => {
+    if (placedNames.includes(div.dataset.name)) {
+      div.style.display = 'block'; // 공유 중인 사람 통계만 표시
+    } else {
+      div.style.display = 'none';
+    }
+  });
+}
+
+window.showPlacedStats = showPlacedStats;
+
 
 // === MQTT 구독 연결 ===
 if (window.client) {
