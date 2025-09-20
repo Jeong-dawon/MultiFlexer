@@ -76,6 +76,12 @@ const stateManager = {
             const removed = this.placedParticipants.splice(index, 1)[0];
             console.log("[STATE] 참여자 제거:", removed);
 
+            // === 추가: 통계 DOM 제거 ===
+            const statDiv = document.querySelector(`.stat-entry[data-name="${participantName}"]`);
+            if (statDiv) {
+                statDiv.remove();
+            }
+
             // MQTT로 화면 배치 상태 전송
             this.publishPlacementUpdate();
             return true;
@@ -838,6 +844,12 @@ const uiManager = {
 
         // 원본 참가자 요소의 버튼 색상을 원래대로 변경
         this.updateParticipantButtonColor(participantName, false);
+
+        // === 추가: 해당 통계 DOM도 제거 ===
+        const statDiv = document.querySelector(`.stat-entry[data-name="${participantName}"]`);
+        if (statDiv) {
+            statDiv.remove();
+        }
 
         // 레이아웃 재조정
         this.adjustLayoutAfterRemoval();
