@@ -127,6 +127,20 @@ function onMessageArrived(msg) {
 		}
 	}
 
+	else if (msg.destinationName === "stats/update") {
+		try {
+			const stats = JSON.parse(msg.payloadString);
+			console.log("[DEBUG][STATS 메시지 수신]", stats);
+
+			requestAnimationFrame(() => {
+				handleStatsMessage(stats);
+			});
+		} catch (err) {
+			console.error("[STATS] JSON parse error:", err);
+			console.error("[STATS] 원본 메시지:", msg.payloadString);
+		}
+	}
+
 	if (msg.destinationName == "participant/update") {
 		try {
 			const userList = JSON.parse(msg.payloadString);
