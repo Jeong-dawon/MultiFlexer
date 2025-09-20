@@ -10,9 +10,6 @@ class Cell(QtWidgets.QFrame):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
 
-    def mousePressEvent(self, e):
-        self.clicked.emit()
-
     def put_widget(self, w: QtWidgets.QWidget):
         while self._layout.count():
             item = self._layout.takeAt(0)

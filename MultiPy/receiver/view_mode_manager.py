@@ -68,6 +68,14 @@ class ViewModeManager(QtCore.QObject):
             # 모드 설정
             self.set_mode(layout_mode)
 
+            # peers 에 실제 존재하는 참가자만 필터링
+            if self._manager:
+                participants = [
+                    p for p in participants
+                    if p.get('id') in self._manager.peers
+                ]
+
+
             # 참가자들을 각 셀에 할당
             self._assign_participants(participants)
             
@@ -148,8 +156,6 @@ class ViewModeManager(QtCore.QObject):
 
         # 새 셀 생성
         self.cells = [Cell() for _ in range(mode)]
-        for idx, cell in enumerate(self.cells):
-            cell.clicked.connect(lambda i=idx: self._set_focus(i))
 
         # Grid 재배치
         self.ui.apply_layout(mode, self.cells)

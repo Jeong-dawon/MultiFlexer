@@ -233,7 +233,7 @@ class MultiReceiverManager:
                 if s == sid:
                     try:
                         if self.view_manager and 0 <= idx < len(self.view_manager.cells):
-                            self.view_manager.cells[idx].clear()
+                            self.view_manager._set_focus(idx)
                     except Exception:
                         pass
                     self._cell_assign.pop(idx, None)

@@ -126,19 +126,22 @@ function onMessageArrived(msg) {
 			console.error("[MQTT ERROR] 화면 공유 정보 파싱 실패:", error);
 		}
 	}
-	
-	else if (msg.destinationName === "stats/update") {
+
+	if (msg.destinationName == "participant/update") {
 		try {
-			const stats = JSON.parse(msg.payloadString);
-			console.log("[MQTT][STATS] 메시지 수신:", stats);
+			const userList = JSON.parse(msg.payloadString);
+			console.log("[MQTT] 사용자 목록:", userList);
 
-			// 화면에 표시 (administrator.js에 handleStatsMessage 정의되어 있어야 함)
-			if (window.handleStatsMessage) {
-				window.handleStatsMessage(stats);
+			if (Array.isArray(userList)) {
+				if (window.stateManager) {
+					window.stateManager.updateAllParticipants(userList);
+				}
+
+				// 🔑 여기서 화면 상태 다시 요청
+				publish("screen/request", "");
 			}
-
 		} catch (error) {
-			console.error("[MQTT ERROR] STATS 파싱 실패:", error, msg.payloadString);
+			console.error("[MQTT] JSON 파싱 실패:", error);
 		}
 	}
 

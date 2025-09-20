@@ -128,7 +128,8 @@ def start_mosquitto():
     with open(tmp_conf, "w", encoding="utf-8") as f:
         f.write(conf_data)
 
-    mosq_bin = resource_path("mosquitto.exe" if is_windows else "mosquitto")
+    mosq_bin = "/usr/local/sbin/mosquitto"
+
 
     if is_windows: # 윈도우
         mosquitto_process = subprocess.Popen(
